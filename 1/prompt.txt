@@ -1,0 +1,184 @@
+// Daily sync: download Upstox instruments file -> validate -> upsert into Postgres.
+// Inserts new instruments, updates changed ones, skips unchanged ones.
+// npm i pg zod   (Node 18+ for built-in fetch)
+
+import { gunzipSync } from "node:zlib";
+import { Pool } from "pg";
+import { InstrumentFileSchema, type Instrument } from "./instruments.schema";
+
+const FILES = {
+  NSE: "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz",
+  BSE: "https://assets.upstox.com/market-quote/instruments/exchange/BSE.json.gz",
+  MCX: "https://assets.upstox.com/market-quote/instruments/exchange/MCX.json.gz",
+  ALL: "https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz",
+} as const;
+
+export type SyncResult = {
+  total: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  newKeys: string[]; // instrument_keys added in this run
+};
+
+const BATCH_SIZE = 2000;
+
+// The whole batch goes in as ONE jsonb param; Postgres unpacks it with jsonb_to_recordset.
+// The WHERE clause on DO UPDATE skips rows whose data hasn't changed.
+// (xmax = 0) is true only for freshly inserted rows -> lets us tell inserts from updates.
+const UPSERT_SQL = `
+INSERT INTO instruments (
+  instrument_key, segment, exchange, instrument_type, trading_symbol, name, exchange_token,
+  isin, short_name, security_type, lot_size, freeze_quantity, tick_size,
+  expiry, strike_price, weekly, minimum_lot, underlying_symbol, underlying_key, underlying_type,
+  raw, updated_at
+)
+SELECT
+  r.instrument_key, r.segment, r.exchange, r.instrument_type, r.trading_symbol, r.name, r.exchange_token,
+  r.isin, r.short_name, r.security_type, r.lot_size, r.freeze_quantity, r.tick_size,
+  CASE WHEN r.expiry IS NULL THEN NULL ELSE to_timestamp(r.expiry / 1000.0) END,
+  r.strike_price, r.weekly, r.minimum_lot, r.underlying_symbol, r.underlying_key, r.underlying_type,
+  r.raw, now()
+FROM jsonb_to_recordset($1::jsonb) AS r(
+  instrument_key text, segment text, exchange text, instrument_type text, trading_symbol text,
+  name text, exchange_token text, isin text, short_name text, security_type text,
+  lot_size integer, freeze_quantity numeric, tick_size numeric, expiry bigint,
+  strike_price numeric, weekly boolean, minimum_lot integer, underlying_symbol text,
+  underlying_key text, underlying_type text, raw jsonb
+)
+ON CONFLICT (instrument_key) DO UPDATE SET
+  segment           = EXCLUDED.segment,
+  exchange          = EXCLUDED.exchange,
+  instrument_type   = EXCLUDED.instrument_type,
+  trading_symbol    = EXCLUDED.trading_symbol,
+  name              = EXCLUDED.name,
+  exchange_token    = EXCLUDED.exchange_token,
+  isin              = EXCLUDED.isin,
+  short_name        = EXCLUDED.short_name,
+  security_type     = EXCLUDED.security_type,
+  lot_size          = EXCLUDED.lot_size,
+  freeze_quantity   = EXCLUDED.freeze_quantity,
+  tick_size         = EXCLUDED.tick_size,
+  expiry            = EXCLUDED.expiry,
+  strike_price      = EXCLUDED.strike_price,
+  weekly            = EXCLUDED.weekly,
+  minimum_lot       = EXCLUDED.minimum_lot,
+  underlying_symbol = EXCLUDED.underlying_symbol,
+  underlying_key    = EXCLUDED.underlying_key,
+  underlying_type   = EXCLUDED.underlying_type,
+  raw               = EXCLUDED.raw,
+  updated_at        = now()
+WHERE instruments.raw IS DISTINCT FROM EXCLUDED.raw
+RETURNING instrument_key, (xmax = 0) AS inserted;
+`;
+
+async function downloadInstruments(url: string): Promise<Instrument[]> {
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (instrument-sync)" } });
+  if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText} (${url})`);
+
+  const json = JSON.parse(gunzipSync(Buffer.from(await res.arrayBuffer())).toString("utf8"));
+  return InstrumentFileSchema.parse(json);
+}
+
+function toRow(i: Instrument) {
+  return {
+    instrument_key: i.instrument_key,
+    segment: i.segment,
+    exchange: i.exchange,
+    instrument_type: i.instrument_type,
+    trading_symbol: i.trading_symbol,
+    name: i.name,
+    exchange_token: i.exchange_token,
+    isin: i.isin ?? null,
+    short_name: i.short_name ?? null,
+    security_type: i.security_type ?? null,
+    lot_size: i.lot_size ?? null,
+    freeze_quantity: i.freeze_quantity ?? null,
+    tick_size: i.tick_size ?? null,
+    expiry: i.expiry ?? null,
+    strike_price: i.strike_price ?? null,
+    weekly: i.weekly ?? null,
+    minimum_lot: i.minimum_lot ?? null,
+    underlying_symbol: i.underlying_symbol ?? null,
+    underlying_key: i.underlying_key ?? null,
+    underlying_type: i.underlying_type ?? null,
+    raw: i,
+  };
+}
+
+export async function syncInstruments(
+  pool: Pool,
+  source: keyof typeof FILES = "NSE",
+): Promise<SyncResult> {
+  const instruments = await downloadInstruments(FILES[source]);
+
+  // De-dupe by key: a duplicate inside one batch makes ON CONFLICT throw.
+  const unique = [...new Map(instruments.map((i) => [i.instrument_key, i])).values()];
+  const rows = unique.map(toRow);
+
+  const result: SyncResult = { total: rows.length, inserted: 0, updated: 0, unchanged: 0, newKeys: [] };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      const { rows: changed } = await client.query<{ instrument_key: string; inserted: boolean }>(
+        UPSERT_SQL,
+        [JSON.stringify(batch)],
+      );
+      for (const r of changed) {
+        if (r.inserted) {
+          result.inserted++;
+          result.newKeys.push(r.instrument_key);
+        } else {
+          result.updated++;
+        }
+      }
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  result.unchanged = result.total - result.inserted - result.updated;
+  return result;
+}
+
+// ---------- Run directly: DATABASE_URL=postgres://... npx tsx syncInstruments.ts NSE ----------
+if (require.main === module) {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const source = (process.argv[2] ?? "NSE") as keyof typeof FILES;
+
+  syncInstruments(pool, source)
+    .then((r) => {
+      console.log(`total=${r.total} inserted=${r.inserted} updated=${r.updated} unchanged=${r.unchanged}`);
+      if (r.newKeys.length) console.log("new:", r.newKeys.slice(0, 20).join(", "), r.newKeys.length > 20 ? "…" : "");
+    })
+    .catch((e) => {
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(() => pool.end());
+}
+
+Add this function in lib @lib  and call it once to create initial data set
+
+---
+
+For the code present, we get this error:
+```
+Async function 'createInstrument' has no 'await' expression.
+```
+Fix it, verify, and then give a concise explanation. @repositories/instrument.ts:175-178
+
+---
+
+@services/upstox  create a index file in it and import all the functions or apis that is written and create a object and export taht object in taht object it will have a key {key:{apifunctionname,detaileddecription,input ,output,function itself }}
+
+---
+
+@index.ts (68-75)  this will also have the zod input and zod output schemas as well
