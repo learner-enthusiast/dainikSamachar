@@ -1,1 +1,168 @@
-i think there was a function i cretaed thatuse dto get the nearest metr can you locate it
+// Top metros worldwide for "Local" news selection.
+// countryCode doubles as SerpApi/Google News `gl`; lang is the main local-news language (`hl`).
+// For English-only results, override hl to "en" at query time.
+
+export type Region =
+  | "India" | "Asia" | "Middle East" | "Europe"
+  | "North America" | "Latin America" | "Africa" | "Oceania";
+
+export type Metro = {
+  id: string;            // stable slug, store this on the user
+  name: string;          // display + search name
+  aliases: string[];     // older/alternate names that appear in headlines
+  country: string;
+  countryCode: string;   // ISO 3166-1 alpha-2, lowercase (Google `gl`)
+  region: Region;
+  lat: number;
+  lng: number;
+  timezone: string;      // IANA
+  lang: string;          // Google News `hl`
+};
+
+const m = (
+  id: string, name: string, country: string, countryCode: string, region: Region,
+  lat: number, lng: number, timezone: string, lang: string, aliases: string[] = [],
+): Metro => ({ id, name, aliases, country, countryCode, region, lat, lng, timezone, lang });
+
+export const METROS: Metro[] = [
+  // ---------- India ----------
+  m("mumbai", "Mumbai", "India", "in", "India", 19.076, 72.878, "Asia/Kolkata", "en", ["Bombay"]),
+  m("delhi", "Delhi", "India", "in", "India", 28.614, 77.209, "Asia/Kolkata", "en", ["New Delhi", "Delhi NCR"]),
+  m("bengaluru", "Bengaluru", "India", "in", "India", 12.972, 77.595, "Asia/Kolkata", "en", ["Bangalore"]),
+  m("kolkata", "Kolkata", "India", "in", "India", 22.573, 88.364, "Asia/Kolkata", "en", ["Calcutta"]),
+  m("chennai", "Chennai", "India", "in", "India", 13.083, 80.271, "Asia/Kolkata", "en", ["Madras"]),
+  m("hyderabad", "Hyderabad", "India", "in", "India", 17.385, 78.487, "Asia/Kolkata", "en"),
+  m("pune", "Pune", "India", "in", "India", 18.520, 73.857, "Asia/Kolkata", "en", ["Poona"]),
+  m("ahmedabad", "Ahmedabad", "India", "in", "India", 23.023, 72.571, "Asia/Kolkata", "en"),
+  m("gurugram", "Gurugram", "India", "in", "India", 28.459, 77.027, "Asia/Kolkata", "en", ["Gurgaon"]),
+  m("noida", "Noida", "India", "in", "India", 28.535, 77.391, "Asia/Kolkata", "en"),
+  m("jaipur", "Jaipur", "India", "in", "India", 26.912, 75.787, "Asia/Kolkata", "en"),
+  m("lucknow", "Lucknow", "India", "in", "India", 26.847, 80.947, "Asia/Kolkata", "en"),
+  m("surat", "Surat", "India", "in", "India", 21.170, 72.831, "Asia/Kolkata", "en"),
+  m("kochi", "Kochi", "India", "in", "India", 9.931, 76.267, "Asia/Kolkata", "en", ["Cochin"]),
+  m("chandigarh", "Chandigarh", "India", "in", "India", 30.733, 76.779, "Asia/Kolkata", "en"),
+  m("indore", "Indore", "India", "in", "India", 22.720, 75.858, "Asia/Kolkata", "en"),
+  m("bhubaneswar", "Bhubaneswar", "India", "in", "India", 20.296, 85.825, "Asia/Kolkata", "en"),
+
+  // ---------- Asia ----------
+  m("tokyo", "Tokyo", "Japan", "jp", "Asia", 35.676, 139.650, "Asia/Tokyo", "ja"),
+  m("osaka", "Osaka", "Japan", "jp", "Asia", 34.694, 135.502, "Asia/Tokyo", "ja"),
+  m("seoul", "Seoul", "South Korea", "kr", "Asia", 37.567, 126.978, "Asia/Seoul", "ko"),
+  m("beijing", "Beijing", "China", "cn", "Asia", 39.904, 116.407, "Asia/Shanghai", "zh-CN", ["Peking"]),
+  m("shanghai", "Shanghai", "China", "cn", "Asia", 31.230, 121.474, "Asia/Shanghai", "zh-CN"),
+  m("shenzhen", "Shenzhen", "China", "cn", "Asia", 22.543, 114.058, "Asia/Shanghai", "zh-CN"),
+  m("hong-kong", "Hong Kong", "Hong Kong", "hk", "Asia", 22.320, 114.169, "Asia/Hong_Kong", "en"),
+  m("taipei", "Taipei", "Taiwan", "tw", "Asia", 25.033, 121.565, "Asia/Taipei", "zh-TW"),
+  m("singapore", "Singapore", "Singapore", "sg", "Asia", 1.352, 103.820, "Asia/Singapore", "en"),
+  m("bangkok", "Bangkok", "Thailand", "th", "Asia", 13.756, 100.502, "Asia/Bangkok", "th"),
+  m("jakarta", "Jakarta", "Indonesia", "id", "Asia", -6.209, 106.846, "Asia/Jakarta", "id"),
+  m("kuala-lumpur", "Kuala Lumpur", "Malaysia", "my", "Asia", 3.139, 101.687, "Asia/Kuala_Lumpur", "en", ["KL"]),
+  m("manila", "Manila", "Philippines", "ph", "Asia", 14.600, 120.984, "Asia/Manila", "en", ["Metro Manila"]),
+  m("ho-chi-minh-city", "Ho Chi Minh City", "Vietnam", "vn", "Asia", 10.823, 106.630, "Asia/Ho_Chi_Minh", "vi", ["Saigon"]),
+  m("dhaka", "Dhaka", "Bangladesh", "bd", "Asia", 23.810, 90.412, "Asia/Dhaka", "en"),
+  m("karachi", "Karachi", "Pakistan", "pk", "Asia", 24.861, 67.010, "Asia/Karachi", "en"),
+  m("colombo", "Colombo", "Sri Lanka", "lk", "Asia", 6.927, 79.861, "Asia/Colombo", "en"),
+  m("kathmandu", "Kathmandu", "Nepal", "np", "Asia", 27.717, 85.324, "Asia/Kathmandu", "en"),
+
+  // ---------- Middle East ----------
+  m("dubai", "Dubai", "United Arab Emirates", "ae", "Middle East", 25.205, 55.271, "Asia/Dubai", "en"),
+  m("abu-dhabi", "Abu Dhabi", "United Arab Emirates", "ae", "Middle East", 24.454, 54.377, "Asia/Dubai", "en"),
+  m("riyadh", "Riyadh", "Saudi Arabia", "sa", "Middle East", 24.713, 46.675, "Asia/Riyadh", "ar"),
+  m("doha", "Doha", "Qatar", "qa", "Middle East", 25.285, 51.531, "Asia/Qatar", "en"),
+  m("tel-aviv", "Tel Aviv", "Israel", "il", "Middle East", 32.085, 34.782, "Asia/Jerusalem", "he"),
+  m("istanbul", "Istanbul", "Turkey", "tr", "Middle East", 41.008, 28.978, "Europe/Istanbul", "tr"),
+
+  // ---------- Europe ----------
+  m("london", "London", "United Kingdom", "gb", "Europe", 51.507, -0.128, "Europe/London", "en"),
+  m("paris", "Paris", "France", "fr", "Europe", 48.857, 2.352, "Europe/Paris", "fr"),
+  m("berlin", "Berlin", "Germany", "de", "Europe", 52.520, 13.405, "Europe/Berlin", "de"),
+  m("frankfurt", "Frankfurt", "Germany", "de", "Europe", 50.110, 8.682, "Europe/Berlin", "de"),
+  m("munich", "Munich", "Germany", "de", "Europe", 48.135, 11.582, "Europe/Berlin", "de", ["München"]),
+  m("amsterdam", "Amsterdam", "Netherlands", "nl", "Europe", 52.368, 4.904, "Europe/Amsterdam", "nl"),
+  m("brussels", "Brussels", "Belgium", "be", "Europe", 50.850, 4.352, "Europe/Brussels", "fr"),
+  m("madrid", "Madrid", "Spain", "es", "Europe", 40.417, -3.704, "Europe/Madrid", "es"),
+  m("barcelona", "Barcelona", "Spain", "es", "Europe", 41.387, 2.170, "Europe/Madrid", "es"),
+  m("milan", "Milan", "Italy", "it", "Europe", 45.464, 9.190, "Europe/Rome", "it", ["Milano"]),
+  m("rome", "Rome", "Italy", "it", "Europe", 41.903, 12.496, "Europe/Rome", "it", ["Roma"]),
+  m("zurich", "Zurich", "Switzerland", "ch", "Europe", 47.377, 8.541, "Europe/Zurich", "de", ["Zürich"]),
+  m("dublin", "Dublin", "Ireland", "ie", "Europe", 53.350, -6.260, "Europe/Dublin", "en"),
+  m("stockholm", "Stockholm", "Sweden", "se", "Europe", 59.329, 18.069, "Europe/Stockholm", "sv"),
+  m("warsaw", "Warsaw", "Poland", "pl", "Europe", 52.230, 21.012, "Europe/Warsaw", "pl", ["Warszawa"]),
+  m("moscow", "Moscow", "Russia", "ru", "Europe", 55.756, 37.617, "Europe/Moscow", "ru"),
+
+  // ---------- North America ----------
+  m("new-york", "New York", "United States", "us", "North America", 40.713, -74.006, "America/New_York", "en", ["NYC", "New York City"]),
+  m("washington-dc", "Washington", "United States", "us", "North America", 38.907, -77.037, "America/New_York", "en", ["Washington DC", "D.C."]),
+  m("boston", "Boston", "United States", "us", "North America", 42.360, -71.059, "America/New_York", "en"),
+  m("miami", "Miami", "United States", "us", "North America", 25.762, -80.192, "America/New_York", "en"),
+  m("chicago", "Chicago", "United States", "us", "North America", 41.878, -87.630, "America/Chicago", "en"),
+  m("houston", "Houston", "United States", "us", "North America", 29.760, -95.370, "America/Chicago", "en"),
+  m("dallas", "Dallas", "United States", "us", "North America", 32.777, -96.797, "America/Chicago", "en"),
+  m("los-angeles", "Los Angeles", "United States", "us", "North America", 34.052, -118.244, "America/Los_Angeles", "en", ["LA"]),
+  m("san-francisco", "San Francisco", "United States", "us", "North America", 37.775, -122.419, "America/Los_Angeles", "en", ["SF", "Bay Area"]),
+  m("seattle", "Seattle", "United States", "us", "North America", 47.606, -122.332, "America/Los_Angeles", "en"),
+  m("toronto", "Toronto", "Canada", "ca", "North America", 43.653, -79.383, "America/Toronto", "en"),
+  m("vancouver", "Vancouver", "Canada", "ca", "North America", 49.283, -123.121, "America/Vancouver", "en"),
+  m("mexico-city", "Mexico City", "Mexico", "mx", "North America", 19.433, -99.133, "America/Mexico_City", "es", ["CDMX", "Ciudad de México"]),
+
+  // ---------- Latin America ----------
+  m("sao-paulo", "São Paulo", "Brazil", "br", "Latin America", -23.551, -46.633, "America/Sao_Paulo", "pt-BR", ["Sao Paulo"]),
+  m("rio-de-janeiro", "Rio de Janeiro", "Brazil", "br", "Latin America", -22.907, -43.173, "America/Sao_Paulo", "pt-BR", ["Rio"]),
+  m("buenos-aires", "Buenos Aires", "Argentina", "ar", "Latin America", -34.604, -58.382, "America/Argentina/Buenos_Aires", "es"),
+  m("bogota", "Bogotá", "Colombia", "co", "Latin America", 4.711, -74.072, "America/Bogota", "es", ["Bogota"]),
+  m("santiago", "Santiago", "Chile", "cl", "Latin America", -33.449, -70.669, "America/Santiago", "es"),
+  m("lima", "Lima", "Peru", "pe", "Latin America", -12.046, -77.043, "America/Lima", "es"),
+
+  // ---------- Africa ----------
+  m("lagos", "Lagos", "Nigeria", "ng", "Africa", 6.524, 3.379, "Africa/Lagos", "en"),
+  m("johannesburg", "Johannesburg", "South Africa", "za", "Africa", -26.204, 28.047, "Africa/Johannesburg", "en", ["Joburg"]),
+  m("cape-town", "Cape Town", "South Africa", "za", "Africa", -33.925, 18.424, "Africa/Johannesburg", "en"),
+  m("nairobi", "Nairobi", "Kenya", "ke", "Africa", -1.292, 36.822, "Africa/Nairobi", "en"),
+  m("cairo", "Cairo", "Egypt", "eg", "Africa", 30.044, 31.236, "Africa/Cairo", "ar"),
+
+  // ---------- Oceania ----------
+  m("sydney", "Sydney", "Australia", "au", "Oceania", -33.869, 151.209, "Australia/Sydney", "en"),
+  m("melbourne", "Melbourne", "Australia", "au", "Oceania", -37.814, 144.963, "Australia/Melbourne", "en"),
+  m("auckland", "Auckland", "New Zealand", "nz", "Oceania", -36.849, 174.763, "Pacific/Auckland", "en"),
+];
+
+// ---------- Helpers ----------
+
+export const METRO_BY_ID = new Map(METROS.map((x) => [x.id, x]));
+
+/** Match free text ("Bangalore", "nyc") to a metro by name or alias. */
+export function findMetro(text: string): Metro | undefined {
+  const q = text.trim().toLowerCase();
+  return METROS.find(
+    (x) => x.name.toLowerCase() === q || x.aliases.some((a) => a.toLowerCase() === q),
+  );
+}
+
+/** Nearest metro to a user's coordinates (browser geolocation / IP lookup). */
+export function nearestMetro(lat: number, lng: number, maxKm = 150): Metro | undefined {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const km = (x: Metro) => {
+    const dLat = rad(x.lat - lat), dLng = rad(x.lng - lng);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat)) * Math.cos(rad(x.lat)) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.asin(Math.sqrt(a));
+  };
+  let best: Metro | undefined, bestKm = Infinity;
+  for (const x of METROS) {
+    const d = km(x);
+    if (d < bestKm) { best = x; bestKm = d; }
+  }
+  return bestKm <= maxKm ? best : undefined; // too far from any metro -> caller falls back to country news
+}
+
+/** SerpApi Google News params for a metro's local news. */
+export function localNewsParams(x: Metro, englishOnly = true) {
+  const names = [x.name, ...x.aliases.filter((a) => a.length > 3)].map((n) => `"${n}"`);
+  return {
+    engine: "google_news",
+    q: names.join(" OR "),              // "Mumbai" OR "Bombay"
+    gl: x.countryCode,
+    hl: englishOnly ? "en" : x.lang,
+  };
+}
+
+instead of using serp api for location in news page create a schema and use this as seed ata and create a api to get this serp api is consuming too much credits for location search
