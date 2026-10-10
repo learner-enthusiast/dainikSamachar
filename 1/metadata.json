@@ -1,0 +1,74 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4K2HQP715VSB7D81B3EV75R",
+  "session_id": "bd4f75c3-e472-4340-b322-a30189204688",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T14:12:55.745019891Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "save_step_count": 2,
+  "files_touched": [
+    "app/api/news/metros/nearest/route.ts",
+    "app/api/news/metros/search/route.ts",
+    "app/news/page.tsx",
+    "components/news/MetroAutocomplete.tsx",
+    "config/newsMetros.ts",
+    "db/schema/migrations/20261010180000_news_metros/migration.sql",
+    "db/schema/schema.prisma",
+    "hooks/useNewsMetroGeolocation.ts",
+    "hooks/useNewsMetroSuggestions.ts",
+    "package.json",
+    "repositories/newsMetro.ts",
+    "scripts/seedNewsMetros.ts",
+    "services/news/apiService.ts",
+    "services/news/metroHelpers.ts",
+    "services/news/metroLocation.test.ts",
+    "services/news/metroLocation.ts"
+  ],
+  "agent": "Cursor",
+  "model": "composer-2.5-fast",
+  "turn_id": "601e0a12660c",
+  "checkpoint_transcript_start": 161,
+  "transcript_lines_at_start": 161,
+  "compact_transcript_start": 31,
+  "token_usage": {
+    "input_tokens": 73546,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1244992,
+    "output_tokens": 17825,
+    "api_call_count": 1
+  },
+  "session_metrics": {
+    "turn_count": 16,
+    "context_tokens": 184864,
+    "context_window_size": 200000
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T14:12:55.698403957Z",
+    "agent_lines": 1064,
+    "agent_removed": 37,
+    "human_added": 6882,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 7946,
+    "total_lines_changed": 7983,
+    "agent_percentage": 13.791807591131153,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1064,
+      "agent_lines_removed": 37
+    }
+  ]
+}
