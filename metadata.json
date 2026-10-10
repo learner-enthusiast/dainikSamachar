@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4JVV2JZQ7RGQRXQKV04XT37",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "Agents/stockResearch/linkSelectorAgent.ts",
+    "Agents/stockResearch/promptEnhancerAgent.ts",
+    "Agents/stockResearch/reportSynthesizerAgent.ts",
+    "app/api/stockResearch/[stockResearchId]/route.ts",
+    "app/api/stockResearch/route.ts",
+    "app/globals.css",
+    "app/stockResearch/[stockResearchId]/page.tsx",
+    "app/stockResearch/history/page.tsx",
+    "app/stockResearch/layout.tsx",
+    "clients/AIClient.ts",
+    "components/research/StockResearchHistoryView.tsx",
+    "components/research/StockResearchRecentSidebar.tsx",
+    "components/research/StockResearchResultClient.tsx",
+    "components/research/StockResearchResultView.tsx",
+    "components/research/StockResearchWorkspace.tsx",
+    "components/research/StockSearch.tsx",
+    "db/schema/migrations/20261010114038_updatestockresearch/migration.sql",
+    "db/schema/schema.prisma",
+    "hooks/useRecentStockResearches.ts",
+    "hooks/useStockResearchPolling.ts",
+    "inngest/index.ts",
+    "inngest/stockResearch/stockResearchPipeline.ts",
+    "lib/requireProApiUser.ts",
+    "repositories/instrument.ts",
+    "services/stockResearch/apiService.ts",
+    "services/stockResearch/researchContext.ts",
+    "services/stockResearch/stockResearchTypes.ts",
+    "services/upstox/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 156,
+    "cache_creation_tokens": 189106,
+    "cache_read_tokens": 12155469,
+    "output_tokens": 70992,
+    "api_call_count": 78
+  }
+}

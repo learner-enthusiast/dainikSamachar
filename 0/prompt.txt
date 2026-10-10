@@ -1,0 +1,64 @@
+can you figure even though the agents are running properly neat logs are not getting updated
+
+---
+
+<pasted_content id="b42f">
+@stockResearchPipeline.ts (170-183)  after this create asynthesizer agent that based on the serp calls  and normalized links and user prompt give back the links taht needs to be firecrawled  like in @inngest/newsPipeline.ts get taht firecrawled and save in research resouuces and save all the upstox data in research resouces as well then create a markdown synthesizer agent that creates the markdown and then sendsba ck to user after getting the amrkdown change status to complete  also as soonas pipeline is run cretae a prompt enhancer agent taht enhances the prompt given by user
+
+Also create a backend api that is wired to /stockresearch page on selecting the  stock user will ahve option to give a prompt below it and then click abutton start research it will create the stockResearch with status pending and will call the stockResearchPipeline and then will redirect user to stockResearch/id it will continious poll the db when on that page and it will have similar ui to /news/id page with loading states and all also create a api that list recent stock researches  and show it in stock research page right side bar it will have show all uption will fetch all the stock researches max 10 with pagination in recent stock research api  only 5 will show the recent ones
+</pasted_content id="b42f">
+
+---
+
+<pasted_content id="b42f">
+export async function POST(request: Request) {
+  const { user, response } = await requireProApiUser();
+  if (!user) {
+    return response;
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = startStockResearchBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        error: parsed.error.issues[0]?.message ?? "Validation failed",
+        details: z.treeifyError(parsed.error),
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const stockResearch = await startStockResearch(user.id, parsed.data);
+    return NextResponse.json({ stockResearch }, { status: 201 });
+  } catch (error) {
+    if (error instanceof StockResearchInputError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    const message =
+      error instanceof Error ? error.message : "Failed to start research";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+</pasted_content id="b42f">
+
+after creating the stock research row retrun th eid to frontend so that he can be redirected to the stockResearch/id page immdiately let the pipeline run in in the backgorund that is what polling for
+
+---
+
+@app/stockResearch/[stockResearchId]/page.tsx  add proper scrolling to the page overflow-y-auto i accnot see full markdown\
+
+---
+
+make individual parts of page scrollable not the whole page
+
+---
+
+@components/research/StockResearchResultView.tsx   the whole page scroll functionalty looks really bad
