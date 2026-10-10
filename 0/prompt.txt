@@ -1,0 +1,1 @@
+@repositories/instrument.ts   searchInstrumentsByNameOrShortName use this function from this file create a ap that recives the name and return a list of items of similar like a suggestion api  show the names in a list max 10 integrate it in the @app/stockResearch/page.tsx  to select one of the suggested stock will write the rest later
