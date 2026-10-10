@@ -3,11 +3,12 @@
   "checkpoint_id": "01M4JVV2JZQ7RGQRXQKV04XT37",
   "strategy": "manual-commit",
   "branch": "master",
-  "checkpoints_count": 6,
+  "checkpoints_count": 14,
   "files_touched": [
     "Agents/stockResearch/linkSelectorAgent.ts",
     "Agents/stockResearch/promptEnhancerAgent.ts",
     "Agents/stockResearch/reportSynthesizerAgent.ts",
+    "Agents/stockResearch/toolDeterminerAgent.ts",
     "app/api/stockResearch/[stockResearchId]/route.ts",
     "app/api/stockResearch/route.ts",
     "app/globals.css",
@@ -15,6 +16,7 @@
     "app/stockResearch/history/page.tsx",
     "app/stockResearch/layout.tsx",
     "clients/AIClient.ts",
+    "components/research/ResearchMarkdown.tsx",
     "components/research/StockResearchHistoryView.tsx",
     "components/research/StockResearchRecentSidebar.tsx",
     "components/research/StockResearchResultClient.tsx",
@@ -22,6 +24,8 @@
     "components/research/StockResearchWorkspace.tsx",
     "components/research/StockSearch.tsx",
     "db/schema/migrations/20261010114038_updatestockresearch/migration.sql",
+    "db/schema/migrations/20261010120000_stock_research/migration.sql",
+    "db/schema/migrations/20261010140000_stock_research_loading_logs/migration.sql",
     "db/schema/schema.prisma",
     "hooks/useRecentStockResearches.ts",
     "hooks/useStockResearchPolling.ts",
@@ -29,7 +33,10 @@
     "inngest/stockResearch/stockResearchPipeline.ts",
     "lib/requireProApiUser.ts",
     "repositories/instrument.ts",
+    "repositories/stockResearch.ts",
+    "repositories/stockResearchResource.ts",
     "services/stockResearch/apiService.ts",
+    "services/stockResearch/executeStockResearchTools.ts",
     "services/stockResearch/researchContext.ts",
     "services/stockResearch/stockResearchTypes.ts",
     "services/upstox/index.ts"
@@ -41,13 +48,20 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 156,
+    "input_tokens": 132785,
     "cache_creation_tokens": 189106,
-    "cache_read_tokens": 12155469,
-    "output_tokens": 70992,
-    "api_call_count": 78
+    "cache_read_tokens": 22174253,
+    "output_tokens": 116792,
+    "api_call_count": 86
   }
 }

@@ -1,0 +1,171 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4JVV2JZQ7RGQRXQKV04XT37",
+  "session_id": "bd4f75c3-e472-4340-b322-a30189204688",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T12:15:42.095335203Z",
+  "branch": "master",
+  "checkpoints_count": 8,
+  "save_step_count": 8,
+  "files_touched": [
+    "Agents/stockResearch/toolDeterminerAgent.ts",
+    "app/globals.css",
+    "clients/AIClient.ts",
+    "components/research/ResearchMarkdown.tsx",
+    "components/research/StockResearchResultClient.tsx",
+    "components/research/StockResearchResultView.tsx",
+    "components/research/StockResearchWorkspace.tsx",
+    "components/research/StockSearch.tsx",
+    "db/schema/migrations/20261010120000_stock_research/migration.sql",
+    "db/schema/migrations/20261010140000_stock_research_loading_logs/migration.sql",
+    "db/schema/schema.prisma",
+    "inngest/index.ts",
+    "inngest/stockResearch/stockResearchPipeline.ts",
+    "repositories/instrument.ts",
+    "repositories/stockResearch.ts",
+    "repositories/stockResearchResource.ts",
+    "services/stockResearch/executeStockResearchTools.ts",
+    "services/upstox/index.ts"
+  ],
+  "agent": "Cursor",
+  "model": "composer-2.5-fast",
+  "turn_id": "b3dfb64bf541",
+  "checkpoint_transcript_start": 67,
+  "transcript_lines_at_start": 67,
+  "compact_transcript_start": 11,
+  "token_usage": {
+    "input_tokens": 132629,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 10018784,
+    "output_tokens": 45800,
+    "api_call_count": 8
+  },
+  "session_metrics": {
+    "turn_count": 13,
+    "context_tokens": 184864,
+    "context_window_size": 200000
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T12:15:42.03444734Z",
+    "agent_lines": 1748,
+    "agent_removed": 0,
+    "human_added": 1375,
+    "human_modified": 481,
+    "human_removed": 0,
+    "total_committed": 3480,
+    "total_lines_changed": 3604,
+    "agent_percentage": 48.50166481687015,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 13,
+      "user_lines_removed": 3,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "services/upstox/index.ts": 13
+      },
+      "user_removed_per_file": {
+        "services/upstox/index.ts": 3
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 517,
+      "agent_lines_removed": 3
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 889,
+      "agent_lines_removed": 3
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1536,
+      "agent_lines_removed": 4
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 1,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1540,
+      "agent_lines_removed": 4,
+      "user_added_per_file": {
+        "db/schema/schema.prisma": 1
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 172,
+      "user_lines_removed": 125,
+      "agent_lines_added": 3720,
+      "agent_lines_removed": 22,
+      "user_added_per_file": {
+        "app/stockResearch/history/page.tsx": 5,
+        "app/stockResearch/layout.tsx": 5,
+        "components/research/StockResearchResultView.tsx": 116,
+        "repositories/stockResearch.ts": 20,
+        "services/stockResearch/apiService.ts": 26
+      },
+      "user_removed_per_file": {
+        "app/stockResearch/history/page.tsx": 1,
+        "app/stockResearch/layout.tsx": 2,
+        "components/research/StockResearchResultView.tsx": 108,
+        "services/stockResearch/apiService.ts": 14
+      }
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 56,
+      "user_lines_removed": 17,
+      "agent_lines_added": 3846,
+      "agent_lines_removed": 22,
+      "user_added_per_file": {
+        "app/stockResearch/history/page.tsx": 5,
+        "app/stockResearch/layout.tsx": 5,
+        "repositories/stockResearch.ts": 20,
+        "services/stockResearch/apiService.ts": 26
+      },
+      "user_removed_per_file": {
+        "app/stockResearch/history/page.tsx": 1,
+        "app/stockResearch/layout.tsx": 2,
+        "services/stockResearch/apiService.ts": 14
+      }
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 295,
+      "user_lines_removed": 212,
+      "agent_lines_added": 3850,
+      "agent_lines_removed": 22,
+      "user_added_per_file": {
+        "app/globals.css": 28,
+        "app/stockResearch/history/page.tsx": 5,
+        "app/stockResearch/layout.tsx": 5,
+        "components/research/ResearchMarkdown.tsx": 13,
+        "components/research/StockResearchResultClient.tsx": 7,
+        "components/research/StockResearchResultView.tsx": 117,
+        "components/research/StockResearchWorkspace.tsx": 74,
+        "repositories/stockResearch.ts": 20,
+        "services/stockResearch/apiService.ts": 26
+      },
+      "user_removed_per_file": {
+        "app/stockResearch/history/page.tsx": 1,
+        "app/stockResearch/layout.tsx": 2,
+        "components/research/ResearchMarkdown.tsx": 12,
+        "components/research/StockResearchResultClient.tsx": 3,
+        "components/research/StockResearchResultView.tsx": 109,
+        "components/research/StockResearchWorkspace.tsx": 71,
+        "services/stockResearch/apiService.ts": 14
+      }
+    }
+  ]
+}

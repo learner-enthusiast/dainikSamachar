@@ -1,0 +1,121 @@
+enum StockResearchStatus {
+  PENDING
+  RUNNING
+  RERUNNING
+  COMPLETED
+  FAILED
+}
+
+model StockResearch {
+  id              String              @id @default(cuid())
+  userId          String
+
+  companyName     String?
+  symbol          String?
+  exchange        String?
+  isin            String?
+  instrumentKey   String?
+
+  query           String
+  status          StockResearchStatus @default(PENDING)
+
+  // Increment whenever the user reruns research.
+  runCount        Int                 @default(0)
+
+  determinerPlan  Json?
+  report          Json?
+  reportMarkdown  String?
+  error           String?
+
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  resources       StockResearchResource[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([symbol, exchange])
+  @@index([isin])
+} 
+
+model StockResearchResource {
+  id                String                   @id @default(cuid())
+  stockResearchId   String
+
+  provider          StockResearchProvider
+  type              StockResearchResourceType
+
+  title             String?
+  url               String?
+  externalId        String?
+
+  // Normalized, readable content for AI synthesis.
+  content           String?
+
+  // Original structured API response, article metadata, or AI output.
+  rawData           Json?
+  metadata          Json?
+
+  // Optional link to Newsly's existing research-source system.
+  researchSourceId  String?
+
+  // Useful for deduplication and idempotent retries.
+  contentHash       String?
+
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  stockResearch     StockResearch            @relation(
+    fields: [stockResearchId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@index([stockResearchId, provider])
+  @@index([stockResearchId, type])
+  @@index([externalId])
+  @@index([contentHash])
+  @@unique([stockResearchId, provider, contentHash])
+}
+
+
+in schema and alo in repository
+
+---
+
+@Agents/stockResearch/toolDeterminerAgent.ts  this agent will recieve a full instrument and a prompt taht user wants to invest in this instrument he needs a s much details as possible you have access to this tools @services/upstox/index.ts  and @SERP/index.ts  determine what to call and send boolean values back
+
+---
+
+@inngest/stockResearch  create a new pipeline that recives the dull instrument sends it to determiner gets back the result and call all the upstox function based on it serp functions based on it like in @inngest/newsPipeline.ts  for now just call the function firecrawl synthesizing will do later
+
+---
+
+For the code present, we get this error:
+```
+Unexpected `await` inside a loop.
+```
+Fix it, verify, and then give a concise explanation. @inngest/stockResearch/stockResearchPipeline.ts:173-176
+
+---
+
+loadingLogs   String[] @default([]) @map("loading_logs") I have updated this in stock research create arepository function tp push or updates logs absed in   stock research id
+
+---
+
+@app/stockResearch/[stockResearchId]/page.tsx  @StockResearchResultView.tsx (271-280)  dont reuse chat markdown create a similar component name it researc markdown make it overflow-y-auto with a proper max height
+
+---
+
+it is still not scrollbale i cannot see the full markdown
+
+---
+
+const isEtf = (i) =>
+  (i.segment === "NSE_EQ" || i.segment === "BSE_EQ") &&
+  i.isin?.startsWith("INF"); 
+
+
+this is the criteria to get etfs so create arepository function so that ican filer out etf based on name
