@@ -1,0 +1,56 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4JXNYH97MC52AWXAW8RFB8N",
+  "session_id": "2956af01-d986-4d77-becb-2a2f9fd2ac75",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T12:47:50.581848163Z",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "Agents/news/NewsSythesizeragent.ts",
+    "inngest/newsPipeline.ts",
+    "lib/newsSearchQuerySchema.ts",
+    "services/news/newsSearchPlanning.test.ts",
+    "services/news/newsSearchPlanning.ts",
+    "services/news/normalizeArticles.test.ts",
+    "services/news/normalizeArticles.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5-5",
+  "turn_id": "645ab5566a94",
+  "checkpoint_transcript_start": 848,
+  "transcript_lines_at_start": 848,
+  "compact_transcript_start": 123,
+  "token_usage": {
+    "input_tokens": 54,
+    "cache_creation_tokens": 46529,
+    "cache_read_tokens": 9896275,
+    "output_tokens": 29935,
+    "api_call_count": 27
+  },
+  "session_metrics": {
+    "turn_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T12:47:50.47443764Z",
+    "agent_lines": 404,
+    "agent_removed": 39,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 404,
+    "total_lines_changed": 443,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}
