@@ -1,0 +1,83 @@
+cretae a -- Upstox BOD instruments table (PostgreSQL)
+-- One table for all instrument kinds; derivative-only columns are nullable.
+ 
+CREATE TABLE IF NOT EXISTS instruments (
+  instrument_key     TEXT PRIMARY KEY,          -- "NSE_EQ|INE002A01018"
+  segment            TEXT NOT NULL,             -- NSE_EQ, NSE_INDEX, NSE_FO, ...
+  exchange           TEXT NOT NULL,             -- NSE | BSE | MCX
+  instrument_type    TEXT NOT NULL,             -- EQ | INDEX | FUT | CE | PE | BE | ...
+  trading_symbol     TEXT NOT NULL,             -- "RELIANCE"
+  name               TEXT NOT NULL,
+  exchange_token     TEXT NOT NULL,             -- can be reused by exchange after expiry; never use as ID
+ 
+  -- equity
+  isin               TEXT,
+  short_name         TEXT,
+  security_type      TEXT,
+ 
+  -- tradable
+  lot_size           INTEGER,
+  freeze_quantity    NUMERIC,
+  tick_size          NUMERIC,                   -- paise (5.0 = ₹0.05)
+ 
+  -- derivatives
+  expiry             TIMESTAMPTZ,               -- converted from epoch ms
+  strike_price       NUMERIC,
+  weekly             BOOLEAN,
+  minimum_lot        INTEGER,
+  underlying_symbol  TEXT,
+  underlying_key     TEXT,
+  underlying_type    TEXT,                      -- COM | INDEX | EQUITY | CUR | IRD
+ 
+  raw                JSONB NOT NULL,            -- full original row, for fields not modelled above
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ 
+-- symbol -> key lookups ("RELIANCE" on NSE_EQ)
+CREATE INDEX IF NOT EXISTS idx_instruments_symbol
+  ON instruments (segment, instrument_type, trading_symbol);
+
+in @db/schema/schema.prisma  create a index on name and short_name for faster lookups and create the respective functions in repository folder
+
+---
+
+cretae a -- Upstox BOD instruments table (PostgreSQL)
+-- One table for all instrument kinds; derivative-only columns are nullable.
+ 
+CREATE TABLE IF NOT EXISTS instruments (
+  instrument_key     TEXT PRIMARY KEY,          -- "NSE_EQ|INE002A01018"
+  segment            TEXT NOT NULL,             -- NSE_EQ, NSE_INDEX, NSE_FO, ...
+  exchange           TEXT NOT NULL,             -- NSE | BSE | MCX
+  instrument_type    TEXT NOT NULL,             -- EQ | INDEX | FUT | CE | PE | BE | ...
+  trading_symbol     TEXT NOT NULL,             -- "RELIANCE"
+  name               TEXT NOT NULL,
+  exchange_token     TEXT NOT NULL,             -- can be reused by exchange after expiry; never use as ID
+ 
+  -- equity
+  isin               TEXT,
+  short_name         TEXT,
+  security_type      TEXT,
+ 
+  -- tradable
+  lot_size           INTEGER,
+  freeze_quantity    NUMERIC,
+  tick_size          NUMERIC,                   -- paise (5.0 = ₹0.05)
+ 
+  -- derivatives
+  expiry             TIMESTAMPTZ,               -- converted from epoch ms
+  strike_price       NUMERIC,
+  weekly             BOOLEAN,
+  minimum_lot        INTEGER,
+  underlying_symbol  TEXT,
+  underlying_key     TEXT,
+  underlying_type    TEXT,                      -- COM | INDEX | EQUITY | CUR | IRD
+ 
+  raw                JSONB NOT NULL,            -- full original row, for fields not modelled above
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ 
+-- symbol -> key lookups ("RELIANCE" on NSE_EQ)
+CREATE INDEX IF NOT EXISTS idx_instruments_symbol
+  ON instruments (segment, instrument_type, trading_symbol);
+
+in @db/schema/schema.prisma  create a index on name and short_name for faster lookups and create the respective functions in repository folder
