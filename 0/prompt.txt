@@ -1,0 +1,220 @@
+<pasted_content id="b42f">
+## Context
+Newsly is my AI news-intelligence app (Next.js, Prisma + Postgres/pgvector, Inngest, SerpApi, Firecrawl, OpenAI).
+Pipeline: candidate URLs → dedupe → story clustering → Firecrawl full content → AI evaluation
+(impact, novelty, financial significance) → score → rank → Top N India + Top N World → AI summary.
+
+## Problem
+When I ask for 5 stories I often get 1–2. That can't be right — there is always more news.
+Either (a) too few candidates are coming in, or (b) the AI evaluation/filters are too strict, or both.
+
+## Step 1 — Diagnose before changing anything
+Add logging that prints a funnel count per run, per region:
+  fetched → after dedupe → after clustering → after Firecrawl (success/fail) → after AI eval → passed threshold → returned
+Run it a few times for India and World and show me the numbers.
+Tell me where most candidates are lost, and what each filter/threshold is (file + line).
+
+## Step 2 — Add more sources (max 5 extra per region)
+Add these as new source clients, using the same interface as the existing ones:
+- India: https://www.livemint.com/news/india plus up to 4 more top Indian business/financial outlets
+  (e.g. Economic Times, Moneycontrol, Business Standard, The Hindu BusinessLine)
+- World: https://www.livemint.com/news/world plus up to 4 more top global outlets
+  (e.g. Reuters, CNBC, BBC Business, Al Jazeera)
+Rules:
+- Prefer each site's RSS feed over scraping the HTML page. Find and verify the real feed URLs; don't guess.
+  Fall back to Firecrawl only if a site has no usable feed.
+- Skip sites behind hard paywalls or that block bots.
+- Pick sources by region from a config (region → list of sources), so I can add/remove sources without code changes.
+- Normalise every source to the same candidate shape (title, url, source, publishedAt, snippet, region).
+- Only keep items from the requested time window (day/week/month).
+
+## Step 3 — Loosen the selection so N stories always come back
+- Change from "pass/fail against a fixed score threshold" to "rank everything, return the top N".
+- Keep a low floor only to drop clear junk (ads, duplicates, non-news, irrelevant).
+- If fewer than N pass the floor, backfill with the next-best ranked stories rather than returning fewer.
+- Review the evaluation prompt: it should score relative importance, not ask "is this significant enough?"
+  Show me the old vs new prompt.
+- Make sure clustering isn't merging unrelated stories into one (check the similarity threshold).
+- Return fewer than N only if there are genuinely fewer than N valid candidates, and log why.
+
+## Latency constraints (important)
+Total run time should not increase noticeably.
+- Fetch all sources in parallel with a per-source timeout (~5s); a slow or failing source is skipped, not awaited.
+- Cache source fetches for a few minutes.
+- Run Firecrawl only on the shortlisted candidates (e.g. top 2–3× N after a cheap pre-rank on title/snippet),
+  not on everything fetched.
+- Batch the AI evaluation calls where possible.
+- Report run time before vs after.
+
+## Done when
+- Asking for 5 India and 5 World stories reliably returns 5 each.
+- The funnel log shows where candidates drop.
+- Latency stays within ~20% of the current run time.
+- Summarise what you changed and why, with the before/after funnel numbers.
+</pasted_content id="b42f">
+
+---
+
+<task-notification>
+<task-id>bw3gvz52y</task-id>
+<summary>Monitor event: "news funnel before/after runs finishing"</summary>
+<event>1-before-world.log:   RESULT stories=4/5 totalSec=55.2 avgContentChars=1802 avgSourcesPerStory=1.5</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bhsm3f3q4</task-id>
+<summary>Monitor event: "remaining news funnel runs finishing"</summary>
+<event>2-after-world.log:   RESULT stories=5/5 totalSec=100.8 avgContentChars=2056 avgSourcesPerStory=1.0</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<summary>Monitor event: "news funnel run results (v2)"</summary>
+<event>2-after-world.log:   RESULT stories=5/5 totalSec=69.3 avgContentChars=2033 avgSourcesPerStory=1.0</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<summary>Monitor event: "news funnel run results (v2)"</summary>
+<event>3-before-india.log:   RESULT stories=2/5 totalSec=41.8 avgContentChars=1682 avgSourcesPerStory=1.0</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<summary>Monitor event: "news funnel run results (v2)"</summary>
+<event>4-after-india.log: ZodError: [</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<summary>Monitor event: "news funnel run results (v2)"</summary>
+<event>5-after-hyd.log: ZodError: [</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<summary>Monitor event: "news funnel run results (v2)"</summary>
+<event>6-before-hyd.log:   RESULT stories=2/5 totalSec=39.5 avgContentChars=2146 avgSourcesPerStory=1.0</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<summary>Monitor event: "news funnel run results (v2)"</summary>
+<event>7-before-world-2.log:   RESULT stories=1/5 totalSec=63.2 avgContentChars=3355 avgSourcesPerStory=5.0</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<summary>Monitor event: "news funnel run results (v2)"</summary>
+<event>8-after-world-2.log:   RESULT stories=0/5 totalSec=30.9 avgContentChars=0 avgSourcesPerStory=0.0</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bly7sx8bw</task-id>
+<tool-use-id>toolu_01347YSH9xSTqT95A322QcwB</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/2956af01-d986-4d77-becb-2a2f9fd2ac75/tasks/bly7sx8bw.output</output-file>
+<status>completed</status>
+<summary>Background command "Run second before/after funnel measurements" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b2ikphzgo</task-id>
+<tool-use-id>toolu_01K2HfVjUvgkDRMNh2psiRTo</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/2956af01-d986-4d77-becb-2a2f9fd2ac75/tasks/b2ikphzgo.output</output-file>
+<status>completed</status>
+<summary>Monitor "news funnel run results (v2)" stream ended</summary>
+<event>9-after-india-2.log:   RESULT stories=5/5 totalSec=59.4 avgContentChars=2038 avgSourcesPerStory=1.2
+ALL RUNS DONE</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>btbg6ozod</task-id>
+<summary>Monitor event: "final news funnel runs (v3)"</summary>
+<event>v3-1-after-world.log:   RESULT stories=5/5 totalSec=73.3 avgContentChars=2205 avgSourcesPerStory=1.8</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>btbg6ozod</task-id>
+<summary>Monitor event: "final news funnel runs (v3)"</summary>
+<event>v3-2-after-india.log:   RESULT stories=5/5 totalSec=58.0 avgContentChars=1786 avgSourcesPerStory=1.2</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>btbg6ozod</task-id>
+<summary>Monitor event: "final news funnel runs (v3)"</summary>
+<event>v3-3-after-hyd.log:   RESULT stories=5/5 totalSec=61.3 avgContentChars=1912 avgSourcesPerStory=1.2</event>
+</task-notification>
+
+---
+
+continue hwere you left
+
+---
+
+<task-notification>
+<task-id>btbg6ozod</task-id>
+<summary>Monitor event: "final news funnel runs (v3)"</summary>
+<event>v3-4-after-world.log:   RESULT stories=2/5 totalSec=40.8 avgContentChars=1922 avgSourcesPerStory=1.0</event>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>by2gbhd92</task-id>
+<tool-use-id>toolu_01GnmUh6DEeRCytd8jmmHyk7</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/2956af01-d986-4d77-becb-2a2f9fd2ac75/tasks/by2gbhd92.output</output-file>
+<status>completed</status>
+<summary>Background command "Run final after-change funnel measurements" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>btbg6ozod</task-id>
+<tool-use-id>toolu_01VgHHmLCCsF391zmPifigNo</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/2956af01-d986-4d77-becb-2a2f9fd2ac75/tasks/btbg6ozod.output</output-file>
+<status>completed</status>
+<summary>Monitor "final news funnel runs (v3)" stream ended</summary>
+<event>v3-5-after-india.log:   RESULT stories=5/5 totalSec=60.8 avgContentChars=2039 avgSourcesPerStory=1.0
+ALL RUNS DONE</event>
+</task-notification>
+
+---
+
+please complete it fast my credits will dry up
+
+---
+
+<task-notification>
+<task-id>bjydj0fzh</task-id>
+<tool-use-id>toolu_01Nkk4KwJ7dTTXkBstXjFydj</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/2956af01-d986-4d77-becb-2a2f9fd2ac75/tasks/bjydj0fzh.output</output-file>
+<status>failed</status>
+<summary>Background command "Fix error/timeout split; probe Firecrawl burst errors" failed with exit code 144</summary>
+</task-notification>

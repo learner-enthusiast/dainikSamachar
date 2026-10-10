@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4K0D8RQWW34CNMABF0G11DW",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 9,
+  "files_touched": [
+    "Agents/news/NewsSythesizeragent.ts",
+    "Agents/news/ResearchArticleSelectorAgent.ts",
+    "inngest/newsPipeline.ts",
+    "lib/newsSearchQuerySchema.ts",
+    "package.json",
+    "services/news/normalizeArticles.test.ts",
+    "services/news/normalizeArticles.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 178,
+    "cache_creation_tokens": 153549,
+    "cache_read_tokens": 39108812,
+    "output_tokens": 102403,
+    "api_call_count": 82
+  }
+}
