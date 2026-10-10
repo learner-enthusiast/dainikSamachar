@@ -1,0 +1,25 @@
+<pasted_content id="b42f">
+{
+  "funnel": {
+    "sources": [],
+    "stages": [
+      {
+        "note": "failed=5 (429×5)",
+        "stage": "backfill-firecrawl-ok",
+        "total": 0
+      },
+      {
+        "note": "tip-pages=0 not-article=0 cleaner-errors=0",
+        "stage": "backfill-cleaned-articles",
+        "total": 0
+      }
+    ],
+    "timingsMs": {
+      "backfill-scrape": 4666
+    }
+  },
+  "researched": []
+}
+</pasted_content id="b42f">
+
+What is this ?
