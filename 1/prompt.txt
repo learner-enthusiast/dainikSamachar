@@ -1,0 +1,160 @@
+# Task: Scheduled email newsletters for Newsly
+
+## Context
+Newsly is a Next.js app (App Router) with Clerk auth, Prisma + Postgres, Inngest for background jobs,
+and an existing news pipeline (SerpApi → dedupe → clustering → Firecrawl → AI evaluation → ranking → summary)
+that runs from a `NewsRequest` row and writes `NewsStory` rows.
+
+I want users to create **newsletters**: a saved set of the same news parameters as a `NewsRequest`
+(everything except `date`), plus a schedule (daily / weekdays / weekly / monthly, send time, timezone),
+delivered by email through **Resend**.
+
+Users with identical parameters must **share one generated news set** ("edition") instead of running the
+pipeline once per user. Someone who wants 5 stories gets the top 5 of the same ranked list someone else
+gets 10 from. If a later send needs more stories than an edition has, generate only the extra ones.
+
+I've attached reference implementations. Use them as the design, but adapt names, imports and folders
+to this codebase:
+- `newsletter.prisma` + `edition.prisma` — schema additions (Newsletter, NewsletterDelivery, NewsEdition, enums)
+- `schedule.ts` — `computeNextRun()` and `newsWindow()` (Luxon, timezone/DST-safe)
+- `fingerprint.ts` — `fingerprint()`, `periodKey()`, `normalizeParams()` for sharing editions
+- `metros.ts` — city list used to normalise locations
+- `newsletter.functions.ts` — Inngest scheduler, edition builder, per-newsletter send, failure handler
+
+## Step 0 — Explore first, change nothing yet
+Find and report back (file paths) before writing code:
+1. Where the Prisma schema lives and how migrations are run.
+2. The existing news pipeline: the Inngest function that processes a `NewsRequest`, its event name,
+   and how it is triggered from the UI.
+3. The page/component where users create a news request today (the form with location, scope,
+   categories, storyCount, customQuery, language, sources). We will reuse its fields.
+4. The header/nav component.
+5. Folder conventions: where Inngest functions, server actions / API routes, lib helpers,
+   validation schemas (zod?) and UI components go. Follow them; don't invent a new structure.
+6. The Inngest SDK version (v3 uses `createFunction(config, trigger, handler)`; v4 puts triggers in config).
+7. What `NewsScope` means (region like India/World/Local, or time span like day/week/month),
+   the values of `NewsRequestStatus`, and whether `NewsStory` already stores a rank/position.
+
+Stop and summarise these findings before Step 1.
+
+## Step 1 — Resend setup
+- `npm i resend @react-email/components` (and `luxon` + `@types/luxon` if missing).
+- Env vars (add to `.env.example` too, never commit real keys):
+  `RESEND_API_KEY`, `EMAIL_FROM` (e.g. `Newsly <digest@mail.<domain>>`), `APP_URL`,
+  `SYSTEM_USER_ID`, `UNSUBSCRIBE_SECRET`.
+- Create a small email module in the lib folder: a Resend client and a `sendEmail()` wrapper that
+  takes an idempotency key and throws on error (so Inngest retries the step).
+- Tell me the DNS steps for verifying the sending domain in Resend (SPF, DKIM, DMARC on a `mail.` subdomain);
+  don't try to do them.
+
+## Step 2 — Database
+- Add the models/enums from `newsletter.prisma` and `edition.prisma` to the real schema, plus the listed
+  changes to `NewsRequest`, `NewsStory` (add `rank Int` if missing, with an index on `(newsRequestId, rank)`)
+  and `User` (`newsletters Newsletter[]`).
+- If `NewsScope` is a time span, drop `scope` from `Newsletter` and derive it from `frequency` instead.
+- Create a migration with a clear name. Add a seed/idempotent script that creates the system user
+  whose id is `SYSTEM_USER_ID` (owner of shared editions).
+
+## Step 3 — Reuse the news pipeline (minimal changes)
+- The pipeline must write `rank` (1 = most important) on every `NewsStory`.
+- Let the pipeline function accept `{ requestId, count?, append? }`:
+  - default (no `count`): behave exactly as today.
+  - `append: true`: keep existing stories, add `count` more ranked after them, skipping URLs/clusters
+    already stored. If the pipeline keeps the full ranked candidate list, take the next candidates
+    instead of re-scraping.
+- Make sure it can be awaited with `step.invoke` (it must return when stories are saved).
+- Existing on-demand requests from the UI must keep working unchanged.
+
+## Step 4 — Inngest functions
+- Put `schedule.ts`, `fingerprint.ts` and `metros.ts` in the lib folder.
+- Add the functions from `newsletter.functions.ts` in the Inngest functions folder, wired to the real
+  pipeline function, real status enum values and the real `searchQuery` builder (replace every TODO).
+- Register all new functions in the Inngest `serve()` route.
+- Email rendering: a React Email template with the newsletter name, date, each story
+  (title, source, short summary, "why it matters", link), a "manage newsletter" link and an
+  unsubscribe link. Also send `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers.
+
+## Step 5 — Server side for the UI
+Server actions or API routes (match the codebase), all requiring Clerk auth and checking ownership:
+- create / update newsletter — validate with zod, reuse the news-request field validation;
+  limits: storyCount 1–20, max 5 newsletters per user; `dayOfWeek` required for WEEKLY,
+  `dayOfMonth` (1–31) for MONTHLY; validate timezone with `Intl`. Always set
+  `nextRunAt = computeNextRun(...)` on create and whenever the schedule changes.
+- pause / resume (resume recomputes `nextRunAt` from now), delete.
+- "Send me a test now": sends one issue immediately (event to `newsletter/run` with a
+  `scheduledFor` of now and a distinct id) without touching the schedule.
+- list newsletters with their next send time and last 10 deliveries (status, story count, sent at).
+- Unsubscribe route: `GET /unsubscribe?token=` and one-click `POST`, token = HMAC of newsletter id
+  with `UNSUBSCRIBE_SECRET`; sets `isActive = false`; works without being signed in.
+
+## Step 6 — Frontend
+- New page `/newsletters` (protected by Clerk middleware like other app pages):
+  - List of the user's newsletters: name, summary of parameters, schedule in plain words
+    ("Weekdays at 8:00 AM IST"), next send, active toggle, edit, delete, "send test".
+  - Empty state with a button to create the first one.
+  - Delivery history per newsletter (collapsible).
+- Create/edit form (`/newsletters/new`, `/newsletters/[id]`):
+  - Reuse the existing news request form fields/components — extract shared field components
+    rather than duplicating them.
+  - Schedule section: frequency (Daily / Weekdays / Weekly / Monthly), send time,
+    timezone (default from the browser, searchable select), day of week (only for Weekly),
+    day of month (only for Monthly, note that 29–31 fall back to the last day in short months).
+  - Email address shown read-only from Clerk, optional override field.
+  - Show "Next send: …" computed live as the user changes the schedule.
+- On the existing news results page, add "Get this as a newsletter" that opens the form prefilled
+  with that request's parameters.
+- Header: add a "Newsletters" link next to the existing nav items, active-state styled the same way,
+  visible only when signed in. Include it in the mobile menu.
+- Match the existing design system, components and loading/error patterns.
+
+## Constraints
+- Don't change the behaviour of existing on-demand news requests.
+- No duplicate emails: keep the conditional `nextRunAt` update, unique `(newsletterId, scheduledFor)`,
+  Inngest event ids, and the Resend idempotency key from the reference.
+- Never run the pipeline more than once per edition at a time (keep the concurrency key on the builder).
+- Never send an empty email; mark the delivery SKIPPED instead.
+- Keep secrets in env only.
+
+## Done when
+- `npm run build` and the typecheck pass; the migration applies cleanly.
+- Creating a newsletter sets a correct `nextRunAt`; "send test" delivers a real email via Resend.
+- Two test newsletters with the same parameters (different story counts, e.g. 5 and 10) create
+  **one** `NewsEdition` and one pipeline run; each email has the right number of stories.
+- A third with storyCount 15 tops the edition up by 5 without regenerating the first 10.
+- Pausing stops sends; the unsubscribe link deactivates the newsletter.
+- The header link and pages work on desktop and mobile.
+
+Finish with a summary: files added/changed per folder, the migration name, env vars to set,
+the Resend DNS steps, and anything you couldn't complete.
+
+---
+
+@app/newsletters/new/page.tsx  the page ahs to be scrollable cant see the whole form
+
+---
+
+@instrument.ts (186-197)  use this function create  api and wire it in /etfResearch similar to stockResearch will search and select for now dont add any functionality
+
+---
+
+if my domain is dainiksamachar.arnabsamanta.in what will be my inngest api
+
+---
+
+for firsttime setup  in prod do i need to have a env for environment producytion .env
+
+---
+
+update the .env .example
+
+---
+
+and for resend i am confused
+
+---
+
+dainikjagaran.arnabsamanta.in -verified domain in my resend
+
+---
+
+@/home/arnab-smnta/.cursor/projects/home-arnab-smnta-ssd2-codeV2-my-app/terminals/1.txt:727-758
