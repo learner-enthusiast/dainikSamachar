@@ -1,0 +1,120 @@
+what were the initial seeds taht required to run
+
+---
+
+name: Deploy Dainik Samachar
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dainik-samachar-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy over SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+        run: |
+          set -eu
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=yes \
+            "$EC2_USER@$EC2_HOST" 'bash -se' <<'REMOTE'
+              set -Eeuo pipefail
+
+              export NVM_DIR="$HOME/.nvm"
+              source "$NVM_DIR/nvm.sh"
+
+              cd /home/ubuntu/apps/dainikSamachar
+
+              echo "Pulling latest code..."
+              git fetch origin main
+              git checkout main
+              git pull --ff-only origin main
+
+              echo "Installing dependencies..."
+              pnpm install --frozen-lockfile
+
+              echo "Building Next.js..."
+              pnpm build
+
+              echo "Restarting application..."
+              pm2 restart dainiksamachar --update-env
+              pm2 save
+
+              echo "Checking application health..."
+              curl --fail --silent --show-error \
+                --max-time 15 http://127.0.0.1:3000/ \
+                -o /dev/null
+
+              echo "Deployment completed successfully."
+          REMOTE
+
+
+Add this in github workflow
+
+---
+
+how do i configure sytem user_id for news ltter here
+
+---
+
+in local dev i mean
+
+---
+
+why is ist required?
+
+---
+
+it records not needed in db just the id i sr equired
+
+---
+
+use clerid or user id
+
+---
+
+uopdate the env example
+
+---
+
+ZodError: [
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "locationRadiusMeters"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  }
+]
+    at InngestExecutionEngine.userFnToRun (/home/arnab-smnta/ssd2/codeV2/my-app/.next/dev/server/chunks/inngest_0229wx2._.js:2692:47)
+    at innerHandler (/home/arnab-smnta/ssd2/codeV2/my-app/.next/dev/server/chunks/01vf_inngest_0z70uiz._.js:5769:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)

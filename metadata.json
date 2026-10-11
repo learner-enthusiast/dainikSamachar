@@ -3,9 +3,10 @@
   "checkpoint_id": "01M4MT0G30KQMH7M3EQ1SNSR80",
   "strategy": "manual-commit",
   "branch": "master",
-  "checkpoints_count": 2,
+  "checkpoints_count": 11,
   "files_touched": [
     ".env.example",
+    ".github/workflows/deploy.yml",
     "app/newsletters/new/page.tsx",
     "app/newsletters/page.tsx",
     "inngest/newsPipeline.ts",
@@ -20,13 +21,20 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 20,
+    "input_tokens": 8639,
     "cache_creation_tokens": 33361,
-    "cache_read_tokens": 472692,
-    "output_tokens": 3991,
-    "api_call_count": 10
+    "cache_read_tokens": 1463284,
+    "output_tokens": 9097,
+    "api_call_count": 13
   }
 }

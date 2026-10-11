@@ -1,0 +1,87 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4MT0G30KQMH7M3EQ1SNSR80",
+  "session_id": "bd4f75c3-e472-4340-b322-a30189204688",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-11T06:22:11.271608928Z",
+  "branch": "master",
+  "checkpoints_count": 9,
+  "save_step_count": 4,
+  "files_touched": [
+    ".env.example",
+    ".github/workflows/deploy.yml",
+    "app/newsletters/new/page.tsx",
+    "app/newsletters/page.tsx",
+    "inngest/newsletterPipeline.ts",
+    "lib/newsletter/systemUser.ts",
+    "scripts/seedSystemUser.ts"
+  ],
+  "agent": "Cursor",
+  "model": "composer-2.5-fast",
+  "turn_id": "c43d4186194d",
+  "checkpoint_transcript_start": 298,
+  "transcript_lines_at_start": 298,
+  "compact_transcript_start": 56,
+  "token_usage": {
+    "input_tokens": 8619,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 990592,
+    "output_tokens": 5106,
+    "api_call_count": 3
+  },
+  "session_metrics": {
+    "turn_count": 35,
+    "context_tokens": 181218,
+    "context_window_size": 200000
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-11T06:22:11.195875734Z",
+    "agent_lines": 191,
+    "agent_removed": 27,
+    "human_added": 5,
+    "human_modified": 2,
+    "human_removed": 0,
+    "total_committed": 198,
+    "total_lines_changed": 225,
+    "agent_percentage": 96.88888888888889,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 73,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 172,
+      "agent_lines_removed": 20
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 2,
+      "user_lines_removed": 2,
+      "agent_lines_added": 188,
+      "agent_lines_removed": 27,
+      "user_added_per_file": {
+        "app/newsletters/new/page.tsx": 1,
+        "app/newsletters/page.tsx": 1
+      },
+      "user_removed_per_file": {
+        "app/newsletters/new/page.tsx": 1,
+        "app/newsletters/page.tsx": 1
+      }
+    }
+  ]
+}
