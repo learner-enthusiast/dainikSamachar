@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4MVX2P4VEK083VWX30X1N8A",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "clients/neatlogsClient.ts",
+    "lib/observability/index.ts",
+    "lib/observability/llmUsage.ts",
+    "lib/observability/runContext.ts",
+    "lib/observability/sanitize.ts",
+    "lib/observability/spans.ts",
+    "scripts/observability/printTrace.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 166,
+    "cache_creation_tokens": 206810,
+    "cache_read_tokens": 11883054,
+    "output_tokens": 77974,
+    "api_call_count": 83
+  }
+}
