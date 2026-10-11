@@ -1,0 +1,57 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4N92YR5DMKWXK04GFBN6PDQ",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    "README.md",
+    "app/(marketing)/layout.tsx",
+    "app/(marketing)/page.tsx",
+    "app/globals.css",
+    "app/home/page.tsx",
+    "app/layout.tsx",
+    "app/page.tsx",
+    "clients/env.ts",
+    "components/landing/AskSection.tsx",
+    "components/landing/BrowseToUnderstand.tsx",
+    "components/landing/ChatToStory.tsx",
+    "components/landing/ConversationalResearch.tsx",
+    "components/landing/DainikSamacharLandingPage.tsx",
+    "components/landing/FinalCTA.tsx",
+    "components/landing/HeadlineContext.tsx",
+    "components/landing/HeroSection.tsx",
+    "components/landing/HeroVisual.tsx",
+    "components/landing/LandingBlock.tsx",
+    "components/landing/LandingFooter.tsx",
+    "components/landing/LandingNavbar.tsx",
+    "components/landing/LandingStoryMotion.client.tsx",
+    "components/landing/PhilosophySection.tsx",
+    "components/landing/PricingSection.tsx",
+    "components/landing/ResearchDifference.tsx",
+    "components/landing/ResearchJourney.tsx",
+    "components/landing/SourceTrail.tsx",
+    "components/landing/homeStory.ts",
+    "components/nav/HideOnLanding.tsx",
+    "components/nav/signedInAppNav.ts",
+    "components/news/results/NewsStoryPageHeader.tsx",
+    "components/site-header.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 54,
+    "cache_creation_tokens": 77316,
+    "cache_read_tokens": 2153441,
+    "output_tokens": 21104,
+    "api_call_count": 27
+  }
+}

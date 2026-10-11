@@ -1,0 +1,384 @@
+<pasted_content id="c7b8">
+# Task: Build the Dainik Samachar home page (scroll-tied video hero) inside the existing Next.js app
+
+## Goal
+Replace the current home page (`/`) of this repo (Dainik Samachar — AI news + stock/ETF/MF research for retail
+investors) with the cinematic scroll-tied video hero described in the **VISUAL SPEC** at the bottom of this
+prompt. The spec was written for a standalone Vite app; implement it **natively in this Next.js App Router
+codebase**, wired to the app's real routes and Clerk auth.
+
+The VISUAL SPEC is the source of truth for **look, copy, colours, typography, spacing, breakpoints, animation
+curves/timings, and the scroll-video logic**. Reproduce it pixel-faithfully. Everything in this prompt that's
+*not* in the spec is about adapting it to Next.js and the app — don't add visual extras beyond what's listed here.
+
+---
+
+## Step 0 — Explore first (report back, change nothing)
+Report the following with file paths, then stop and wait for my go-ahead:
+1. Next.js version, React version, Tailwind version (v3 `tailwind.config` vs v4 `@theme`/CSS-first), and whether
+   `lucide-react` is already installed. Path alias for `@/`.
+2. What `/` renders today (`app/page.tsx` or a route group), and where that content should move if the home page
+   is replaced (e.g. is it the news feed that should live at `/news`?). List every link/redirect in the app that
+   points to `/` and would need updating.
+3. The root layout and the global header/nav component: where it's rendered, and how to hide it **only on `/`**
+   (route groups vs. a pathname check). Recommend the least invasive option.
+4. The real routes for: news feed, stock research, chat, newsletters (list + create), sign-in, sign-up.
+5. How Clerk is set up (middleware matcher, `<ClerkProvider>` location, whether `/` is public, existing
+   `SignInButton`/`UserButton` usage).
+6. Global CSS that could clash: `html`/`body` styles, `scroll-behavior`, `overflow`, fonts, dark mode.
+7. Whether a Content-Security-Policy or `next.config` headers/images config exists that would block the
+   CloudFront video, the onlinewebfonts stylesheet, `blob:` URLs, or `fetch` to CloudFront.
+
+---
+
+## Step 1 — File structure
+Use the repo's existing conventions if they differ; otherwise:
+
+```
+app/
+  (marketing)/                 # only if Step 0 recommends route groups
+    layout.tsx                 # no global app header here
+    page.tsx                   # server component: metadata + <ScrollHero />
+components/landing/
+  ScrollHero.tsx               # "use client" — sticky scene, video, canvas, overlay, opacity math
+  LandingNavbar.tsx            # "use client" — desktop links, right cluster, hamburger
+  LandingMobileMenu.tsx        # "use client" — full-screen overlay
+  Stagger.tsx                  # "use client" — fade/translate helper
+  sections/HeroIntro.tsx       # Section 1
+  sections/HeroMission.tsx     # Section 2
+  sections/HeroCta.tsx         # Section 3
+hooks/useVideoScrub.ts         # "use client" logic, framework-agnostic
+lib/landing/content.ts         # ALL copy, nav labels, routes, colours, video URL in one place
+types/mp4box.d.ts              # module declaration for mp4box
+```
+
+- `app/.../page.tsx` stays a **server component**: export `metadata` (title "Dainik Samachar — Know it first",
+  description "AI-ranked news for India, the world and your city, plus stock, ETF and mutual fund research.")
+  and render `<ScrollHero />`. All interactive pieces are client components.
+- Put every string from the VISUAL SPEC (headings, labels, nav items) and every route in
+  `lib/landing/content.ts`, so copy can be changed without touching components.
+
+---
+
+## Step 2 — Next.js adaptation rules
+
+**Client-only code**
+- Anything touching `window`, `document`, `matchMedia`, `VideoDecoder`, `requestAnimationFrame`, or the
+  video/canvas runs only inside `useEffect` in client components. No browser globals at module scope.
+- Import `mp4box` **dynamically inside the effect** (`const MP4Box = (await import("mp4box")).default ?? …`)
+  so it never runs on the server and isn't in the shared bundle. Add `types/mp4box.d.ts`.
+- The first server render must already show the correct static frame of the layout: Section 1 visible
+  (opacity 1), Sections 2–3 hidden, navbar in the DARK colour, so there's no flash or hydration mismatch.
+  Don't read `window.scrollY` during render.
+
+**Lifecycle and cleanup (important with client-side navigation and React Strict Mode)**
+- `useVideoScrub` must be safe to mount twice in dev (Strict Mode) and to unmount mid-build:
+  - one `AbortController` for the `fetch`; abort on unmount
+  - cancel the rAF loop, clear the 60s watchdog timer, remove resize/orientationchange/scroll listeners
+  - `close()` the `VideoDecoder` and any open `VideoFrame`s; `close()` every `ImageBitmap` in the LRU;
+    drop the blob bank
+  - ignore results from a stale build (generation counter) so a remount never paints old frames
+- Navigating away from `/` and back must not leak decoders, duplicate rAF loops, or throw.
+
+**Global styles — scope them to the home page**
+- Do **not** add `html { scroll-behavior: smooth }` or `body { overflow-x: hidden }` globally.
+  Apply them only while the home page is mounted (add a class to `<html>`/`<body>` in an effect and remove it
+  on unmount), so the rest of the app's scroll restoration is unaffected.
+- The mobile menu's `body { overflow: hidden }` must also be restored on unmount, not only on close.
+- Respect the app's existing dark-mode setup: the home page always uses the spec's colours regardless of theme.
+
+**Font**
+- Load the spec's "Helvetica Neue ME" stylesheet only on the home page (via `<link rel="stylesheet">` rendered
+  in the home page/route-group layout; React hoists it). Apply the font-family only inside the landing wrapper,
+  not to `body`. Keep the spec's fallback stack.
+- Add a `// TODO: licensing` comment: this font is served by a third-party site; replace with a licensed font
+  before production. (Do not change it now.)
+
+**Video**
+- Use the spec's CloudFront URL exactly, from `lib/landing/content.ts`.
+- If Step 0 found a CSP, add only the minimal entries needed (`media-src`, `connect-src` for the CloudFront host,
+  `img-src blob:`, `style-src`/`font-src` for the font host) — show me the diff.
+- If the `fetch` for the frame bank fails (CORS etc.), the spec's fallback (seeking `video.currentTime` with lerp)
+  must take over silently. Log one `console.warn` in development only.
+- Add a `// TODO: self-host` comment next to the URL (it's a third-party host).
+
+**Tailwind**
+- Implement classes exactly as written. If the repo uses Tailwind v4, keep the same utility names; arbitrary
+  values like `h-[500vh]`, `tracking-[0.15em]`, `-translate-y-8`, `z-[100]` work in both.
+- Colours that use alpha on DARK (`#1D3045` at 90/80/50/40/30%) use inline `style` or arbitrary values
+  (e.g. `text-[#1D3045]/80`) exactly as the spec describes.
+- Don't add a `tailwind.config` theme change for this page.
+
+---
+
+## Step 3 — Wire to the app (routes + Clerk)
+The spec's elements become real links/actions. Use `next/link` for internal routes. Overlay is
+`pointer-events-none`, so every interactive element inside it must have `pointer-events-auto`.
+
+| Spec element | Behaviour |
+|---|---|
+| Nav: DAINIK SAMACHAR (active) | `/` |
+| Nav: NEWS | news feed route |
+| Nav: RESEARCH | stock research route |
+| Nav: CHAT | chat route |
+| Nav: NEWSLETTERS | newsletters list route |
+| Right cluster: SIGN IN + circle | Signed out: Clerk sign-in (link to the sign-in route, or `<SignInButton mode="redirect">`, matching how the app does it today). Signed in: label becomes **OPEN APP**, links to the news feed; the circle stays identical. |
+| MENU (lg+: span, below lg: button) | Exactly as spec (span on lg+, button opens overlay below lg). |
+| Mobile overlay links | Same 5 links as the desktop nav; clicking one closes the menu and navigates. |
+| Mobile overlay footer: SIGN IN · SIGN UP | Signed out: sign-in and sign-up routes. Signed in: **OPEN APP · NEWSLETTERS**. |
+| Section 1 ArrowRight circle | Link to the news feed. `aria-label="Go to today's news"`. |
+| Section 2 ArrowDown circle | Smooth-scroll to the start of Section 3 (scrollY where p = 0.75). `aria-label="Next"`. |
+| Section 2 ChevronUp circle | Smooth-scroll to top. `aria-label="Back to top"`. |
+| Section 2 dots | Decorative (`aria-hidden`). |
+| Section 3 "Get the daily briefing" + white arrow circle | Signed in: newsletter **create** route. Signed out: sign-up route with a redirect back to the newsletter create route (use the app's existing Clerk redirect pattern). Whole row is one link. |
+
+- Use Clerk's `<SignedIn>` / `<SignedOut>` (or `useAuth().isSignedIn`) in the client navbar. While Clerk is
+  loading, render the signed-out labels with identical dimensions so nothing shifts.
+- Hide the app's global header on `/` only (per Step 0's recommendation). Every other page keeps it unchanged.
+- If `/` currently hosts the news feed, move that page to its proper route first (Step 0, item 2), update all
+  internal links and redirects that assumed the feed is at `/`, and make sure middleware still protects the
+  same pages it did before. `/` must be public.
+
+---
+
+## Step 4 — Accessibility and semantics (no visual change)
+- Section 1 title is the page's only `<h1>`; Sections 2 and 3 use `<h2>`. Navbar is a `<nav aria-label="Main">`.
+- Icon-only buttons have `aria-label`s; the mobile menu button has `aria-expanded` and `aria-controls`;
+  the overlay is a dialog (`role="dialog" aria-modal="true"`), closes on Escape, returns focus to the hamburger.
+- Visible focus styles that match the current colour (DARK or white): `focus-visible:outline` with
+  `outline-offset-4`. Don't change resting appearance.
+- Sections that are hidden (opacity 0) must not be focusable or announced: set `aria-hidden` and `inert`
+  when a section's opacity is 0.
+- `prefers-reduced-motion`: exactly as the spec (no lerp, no frame bank); also skip Stagger/nav entrance transitions.
+- The `<video>` and `<canvas>` are decorative: `aria-hidden="true"`.
+
+---
+
+## Step 5 — Verify
+1. `typecheck`, `lint` and `next build` pass. No new warnings about server/client boundaries.
+2. Run the dev server and, with Playwright (Chromium is installed), capture screenshots of `/` at
+   1440×900 and 390×844 at scroll progress p = 0, 0.45 and 0.85. Confirm:
+   - p=0: Section 1 visible, navbar DARK
+   - p=0.45: Section 2 visible, navbar DARK (it flips only at p > 0.55)
+   - p=0.85: Section 3 visible in white, navbar white
+3. Check the browser console: no errors, no hydration warnings. Report whether the frame bank went live
+   (canvas visible) or fell back to video seeking, and why.
+4. Navigate `/` → `/news` → back to `/` three times; confirm no console errors and that only one rAF loop and
+   one decoder exist (log counts in dev).
+5. Emulate `prefers-reduced-motion: reduce` and confirm the reduced path works.
+6. Test signed-out and signed-in states: right-cluster label, mobile footer, and Section 3 CTA destinations.
+7. Confirm every other page still shows the global header and behaves as before.
+
+## Constraints
+- Don't change any page other than `/`, except: moving the old `/` content (if needed), hiding the global header
+  on `/`, and updating links/redirects that pointed at the old home content.
+- No new dependencies except `mp4box@^0.5.2` and `lucide-react` (if missing). No GSAP, Lenis, framer-motion.
+- Commit in two steps: (1) route/header changes, (2) the landing page itself. Clear commit messages.
+
+Finish with: files added/changed, where the old home content went, whether the canvas frame bank works in the
+browser (or why it fell back), screenshots taken, and anything you couldn't match froe of truth for look, copy and motion)
+
+Build a standalone cinematic one-page site that recreates this EXACTLY. Do not invent extra sections, extra copy, extra logos, extra overlays, GSAP, Lenis, or a different video. Match structure, copy, colors, type, spacing, breakpoints, animations, and scroll-video logic.
+
+STACK
+- (Original stack: Vite + React 18 + TypeScript + Tailwind CSS 3 — in this repo, use the existing Next.js + React + Tailwind setup per the adaptation rules above)
+- lucide-react icons: ArrowRight, ArrowDown, ChevronUp, Info, X
+- mp4box ^0.5.2 for WebCodecs frame extraction
+- Path alias @ -> src
+- One full-viewport sticky scene, 500vh tall scroll track (rendered at / in the Next.js app).
+
+VIDEO (use this URL exactly, nowhere else)
+https://d8j0ntlcm91z4.cloudfront.net/REDACTED/hf_20260821_114821_a8ca298f-be2c-4613-a4dd-51b69e16bbde.mp4
+
+The clip is a high-key aerial fly-through: pale clouds, mist, mountains, then darker atmospheric landscape. Full-bleed object-cover background. No poster image. No controls. muted, playsInline, preload="auto". Video is NEVER autoplayed as a timeline; playback position is driven by scroll.
+
+FONT
+Load exactly:
+<link href="https://db.onlinewebfonts.com/c/95cecf452d3208890088a5b4c19c7ecf?family=Helvetica+Neue+ME" rel="stylesheet">
+body font-family: 'Helvetica Neue ME', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+html { scroll-behavior: smooth; }
+body { overflow-x: hidden; }
+Title: "Dainik Samachar — Know it first"
+
+COLOR
+const DARK = '#1D3045'
+Navy text on light cloud frames. White text on dark later frames.
+No color overlays / gradients on the video. Text sits directly on the video.
+
+PAGE ARCHITECTURE
+Outer: relative h-[500vh]  (this is the scroll distance)
+Inner sticky: sticky top-0 w-full h-screen overflow-hidden
+Inside sticky:
+  1) <video> full cover
+  2) <canvas width=1920 height=1080> absolute inset-0 object-cover, opacity 1 when frame-bank is live else 0, transition-opacity duration-300. Canvas draws decoded frames so scrubbing is smooth (video.currentTime seeking is fallback only).
+  3) Overlay absolute inset-0 pointer-events-none containing Navbar + 3 sequential sections.
+
+SCROLL PROGRESS
+p = clamp(0, 1, window.scrollY / (container.offsetHeight - window.innerHeight))
+Recompute span on resize and orientationchange.
+
+TEXT SECTIONS ARE SEQUENTIAL (previous fully fades out before next appears)
+
+s1Opacity:
+  p < 0.20 → 1
+  else → max(0, 1 - (p - 0.20) / 0.08)
+
+s2Opacity:
+  p < 0.32 → 0
+  p < 0.40 → (p - 0.32) / 0.08
+  p < 0.55 → 1
+  else → max(0, 1 - (p - 0.55) / 0.08)
+
+s3Opacity:
+  p < 0.67 → 0
+  p < 0.75 → (p - 0.67) / 0.08
+  else → 1
+
+Each section: absolute inset-0, style opacity + transition 'opacity 0.1s ease-out'
+Children use Stagger: visible when section opacity > 0.3
+Stagger: opacity 0→1, translateY(24px)→0, 0.8s cubic-bezier(0.16,1,0.3,1), delay in ms.
+
+NAVBAR (absolute top, z-50, pointer-events-auto)
+Padding: px-6 sm:px-8 md:px-12  pt-8 sm:pt-12 pb-6
+flex items-center justify-between
+Color flips at p > 0.55: DARK → white (duration-500)
+
+Desktop lg+: left cluster of 5 links, gap-8 xl:gap-10
+  DAINIK SAMACHAR (active, 2px underline -bottom-3 full width)
+  NEWS
+  RESEARCH
+  CHAT
+  NEWSLETTERS
+Link style: text-xs tracking-[0.15em] uppercase font-medium, hover:opacity-70
+Nav entrance: after 200ms, each link fades/slides from translateY(-12px), opacity 0.6s cubic-bezier(0.16,1,0.3,1), delay i*80+100ms
+
+Right cluster (hidden below sm):
+  SIGN IN (text-xs tracking-[0.2em] uppercase font-medium) + 20px circle filled with current nav color, Info icon size 10 inverted
+  MENU label same type (lg+: span, below lg: button that opens overlay)
+  Right cluster delay 500ms same entrance
+
+Mobile <lg: hamburger left, 3 bars:
+  bar 24x2, 24x2, 16x2, gap 5px, color follows isLight
+Hamburger opens full-screen overlay.
+
+MOBILE MENU OVERLAY
+fixed inset-0 z-[100], background DARK
+open: opacity-100 visible; closed: opacity-0 invisible; duration-500 ease cubic-bezier(0.4,0,0.2,1)
+inner panel: closed -translate-y-8, open translate-y-0
+Close: top-right px-6 sm:px-8 pt-8 sm:pt-12, 40px circle border-white/30, X 18, hover:border-white
+Links centered vertically, px-8 sm:px-12, py-3, text-2xl sm:text-3xl font-light tracking-wide uppercase
+active white, others white/60 hover:white
+stagger in: delay i*60ms, translateY(20px)→0
+Footer: SIGN IN and SIGN UP, text-xs tracking-[0.2em] uppercase text-white/60, px-8 sm:px-12 pb-10
+When open, body overflow hidden.
+
+SECTION 1 (hero, left aligned, vertically centered)
+px-6 sm:px-8 md:px-20 lg:px-32
+H1: "Know what moves your money first"
+  clamp(2rem,5vw,5rem) font-light uppercase leading-[1.2] color DARK
+Subtitle below mt-6: "India · World · Your city"
+  text-sm tracking-[0.3em] uppercase color DARK at 90% alpha (#1D304590)
+Bottom-right absolute bottom-12 right-6 sm:right-8 md:right-12:
+  48px circle button, border DARK 50% alpha, ArrowRight 18, hover:opacity-70
+Stagger delays: title 0, subtitle 150, button 300
+
+SECTION 2 (center)
+px-6 sm:px-8, flex center
+max-w-[900px]
+H2 clamp(1.5rem,4.5vw,4.5rem) font-extralight tracking-wide leading-[1.3] text-center uppercase
+Copy exactly:
+  "We rank every headline by impact " + span color DARK 80% "and evidence" + " " + span color DARK 50% "so you read only what matters"
+Right column absolute bottom-16 right-6 sm:right-8 md:right-12, flex-col items-center gap-4:
+  48px circle, border DARK 40%, ArrowDown 18
+  then mt-4 three dots: 8px solid DARK (active), 6px DARK 40%, 6px DARK 40%, gap-2
+  then 40px circle, border DARK 30%, ChevronUp 16, color DARK 80%, mt-2
+Stagger delays: headline 0, down 200, dots 350, up 500
+
+SECTION 3 (right aligned, white type — video is dark here)
+flex items-center justify-end px-6 sm:px-8 md:px-20 lg:px-32
+max-w-2xl text-left
+Eyebrow: "Dainik Samachar | दैनिक समाचार"  text-white/60 text-lg tracking-wide mb-4
+H2: "Read less," line break "know more."
+  clamp(2rem,4vw,4rem) font-light text-white leading-[1.2] uppercase tracking-wide mb-8
+CTA row gap-4:
+  "Get the daily briefing" text-sm tracking-[0.3em] text-white/80 uppercase
+  40px white filled circle, gray-800 ArrowRight 16, hover:scale-110 duration-300
+Stagger delays: 0 / 150 / 300
+
+SMOOTH VIDEO SCROLL — SAME LOGIC (do not replace with GSAP or naive currentTime only)
+
+Hook useVideoScrub(videoSrc):
+
+Constants:
+  LERP_TAU = 8
+  SNAP = 0.002
+  LRU_MAX = 24
+  LEAD = 24
+  WATCHDOG = 60000 ms
+
+State:
+  bank: {ts microseconds, blob webp}[]
+  lru: Map<index, ImageBitmap | null>
+  current / target times in seconds
+  ready, reverted, painted, building, dur
+
+rAF loop every frame:
+  dt = min(0.1, deltaSeconds)
+  p = getProgress(); setScrollProgress(p)
+  if dur > 0:
+    target = p * dur
+    if prefers-reduced-motion: current = target
+    else:
+      current += (target - current) * (1 - exp(-dt * LERP_TAU))
+      if abs(target-current) < SNAP: current = target
+    if ready: draw nearest frame from bank
+    else: fallback: if not seeking and abs(video.currentTime - current) > 0.01, set video.currentTime = current
+
+Frame bank (build after window load, skip if reduced-motion or no VideoDecoder):
+  fetch the CloudFront mp4 as ArrayBuffer
+  parse with MP4Box.createFile(), extract video track, configure VideoDecoder (codec + avcC/hvcC/vpcC/av1C description)
+  decode samples as EncodedVideoChunk (key vs delta)
+  throttle with LEAD so decode doesn't outrun blob encoding
+  each VideoFrame → offscreen canvas → toBlob('image/webp', 0.82) stored with timestamp
+  sort bank by ts
+  nearestIndex: binary search on timestamps (compare t*1e6)
+  warmLRU around i-1..i+2, createImageBitmap, evict oldest when size > LRU_MAX
+  first successful canvas paint → canvasLive true (canvas fades in over video)
+  if hardware decode fails, retry once with hardwareAcceleration: 'prefer-software'
+  60s watchdog → revert to video seeking fallback, hide canvas
+  CORS: fetch needs CloudFront CORS; video element still works as fallback if decode fails
+
+Video element still renders underneath until canvas is live.
+
+DO NOT
+- Add extra brands, logos, cookie widgets, or “scroll down to discover”
+- Change copy or nav labels
+- Play the video with play()
+- Use a different video host or local file (for now; see the TODO: self-host note)
+- Skip mobile overlay or hamburger
+- Skip lerp (jumping frames = wrong)
+
+DELIVER (Next.js version — replaces the original Vite deliverable)
+The home page at / inside this Next.js app, built from the files listed in Step 1 above
+(ScrollHero, LandingNavbar, LandingMobileMenu, Stagger, three section components, useVideoScrub,
+lib/landing/content.ts, types/mp4box.d.ts), with mp4box and lucide-react installed.
+Pixel-faithful to the spec above.
+</pasted_content id="c7b8">
+
+---
+
+<pasted_content id="c7b8">
+Decisions:
+1. Yes: move the signed-in dashboard to /home, delete the old signed-out marketing landing (git keeps it),
+   point the "Home" nav item at /home, and switch Clerk fallback/after-sign-in redirects from / to /home.
+   Also: update any links/anchors that pointed to sections of the old landing, and make the landing's
+   OPEN APP (signed-in) link and mobile-footer OPEN APP go to /home instead of the news feed.
+   Signed-in users visiting / still see the landing (no auto-redirect).
+2. NEWS and "Go to today's news" → /newsStory (public feed).
+3. Yes, hide SiteFooter on / as well as the header.
+4. Prefer window.scrollY. Give / its own layout (route group) without the app's scroll container so the
+   window scrolls. Only fall back to a container if that's impossible — and if so, tell me why, and make sure
+   progress uses scrollTop/(scrollHeight - clientHeight), sticky works inside it, the ArrowDown/ChevronUp
+   buttons scroll that container, and the scoped smooth-scroll class goes on the container.
+Proceed with Step 1, commit route/header changes first, then the landing page.
+</pasted_content id="c7b8">
