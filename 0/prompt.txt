@@ -1,0 +1,51 @@
+<pasted_content id="0d16">
+ZodError: [
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "locationRadiusMeters"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  }
+]
+    at InngestExecutionEngine.userFnToRun (/home/arnab-smnta/ssd2/codeV2/my-app/.next/dev/server/chunks/inngest_0229wx2._.js:2692:47)
+    at innerHandler (/home/arnab-smnta/ssd2/codeV2/my-app/.next/dev/server/chunks/01vf_inngest_0z70uiz._.js:5769:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+</pasted_content id="0d16">
+
+---
+
+<pasted_content id="0d16">
+[11:43:23.560] ERROR (console): Inngest function error
+ POST /api/inngest?fnId=my-app-news-pipeline&stepId=step 500 in 14ms (next.js: 2ms, proxy.ts: 5ms, application-code: 7ms)
+[11:43:23.560] ERROR (console): [
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "locationRadiusMeters"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  }
+]
+    err: {
+      "type": "ZodError",
+      "message": "[\n  {\n    \"expected\": \"number\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"locationRadiusMeters\"\n    ],\n    \"message\": \"Invalid input: expected number, received undefined\"\n  }\n]",
+      "stack":
+          ZodError: [
+            {
+              "expected": "number",
+              "code": "invalid_type",
+              "path": [
+                "locationRadiusMeters"
+              ],
+              "message": "Invalid input: expected number, received undefined"
+            }
+          ]
+              at InngestExecutionEngine.userFnToRun (/home/arnab-smnta/ssd2/codeV2/my-app/.next/dev/server/chunks/inngest_0229wx2._.js:2692:47)
+              at innerHandler (/home/arnab-smnta/ssd2/codeV2/my-app/.next/dev/server/chunks/01vf_inngest_0z70uiz._.js:5769:25)
+              at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      "name": "ZodError"
+    }
+</pasted_content id="0d16">
