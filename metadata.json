@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4NA63RE25AZQ74VKC5W9ARF",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/(marketing)/layout.tsx",
+    "app/(marketing)/page.tsx",
+    "components/landing/LandingMobileMenu.tsx",
+    "components/landing/LandingNavbar.tsx",
+    "components/landing/ScrollHero.tsx",
+    "components/landing/Stagger.tsx",
+    "components/landing/sections/HeroCta.tsx",
+    "components/landing/sections/HeroIntro.tsx",
+    "components/landing/sections/HeroMission.tsx",
+    "hooks/usePrefersReducedMotion.ts",
+    "hooks/useVideoScrub.ts",
+    "lib/landing/content.ts",
+    "types/mp4box.d.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 62,
+    "cache_creation_tokens": 79552,
+    "cache_read_tokens": 4533144,
+    "output_tokens": 58296,
+    "api_call_count": 31
+  }
+}

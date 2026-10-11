@@ -1,0 +1,7 @@
+<task-notification>
+<task-id>bj4f3p1am</task-id>
+<tool-use-id>toolu_01K1SWdRBmRSJ94f7uhavrCk</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/d895b667-ebf1-4c82-943a-c0dec5fbbf14/tasks/bj4f3p1am.output</output-file>
+<status>failed</status>
+<summary>Background command "Start Next dev server on port 3100" failed with exit code 144</summary>
+</task-notification>
