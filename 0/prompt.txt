@@ -446,3 +446,24 @@ Add tests (or a script if there's no test setup) covering:
 Typecheck and build pass, tests pass, and you've committed with a clear message.
 Finish with the final audit table (all items correct), files changed, and any migration created.
 </pasted_content id="0d16">
+
+---
+
+<pasted_content id="0d16">
+Use option (b) with 365 days: NEWSLETTER_EDITION_RETENTION_DAYS default 365, and never delete an
+edition that has any bookmarked, saved, voted or chat-linked story. Log how many editions were deleted
+and how many were kept because of user activity on each run.
+
+Go ahead with all the planned fixes for items 9, 10, 12, 13 and 14, plus the tests, and include the
+uncommitted edit-page fixes in this commit.
+</pasted_content id="0d16">
+
+---
+
+<task-notification>
+<task-id>bp1dai9ek</task-id>
+<tool-use-id>toolu_016jHTPL3gPF19QHEyAYuriL</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/039996cf-294e-4b1b-85f4-54ea8ded929b/tasks/bp1dai9ek.output</output-file>
+<status>completed</status>
+<summary>Background command "Run production build in background with log" completed (exit code 0)</summary>
+</task-notification>
