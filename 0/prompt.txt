@@ -1,0 +1,9 @@
+http://localhost:3000/newsletters/new the form in this page looks really bad create a btter prompt matching the ui
+
+---
+
+no form itself is not appealing use shacn it looks really bad
+
+---
+
+in the etf page have a similar functionalty like stock research and  prompt input create a similar pipeline for it  similar for mutual fund @repositories/instrument.ts   searchMutualFundsByNameOrShortNameuse this function create the required agents and schema and functionalty it will be similar to stock research
