@@ -1,0 +1,125 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4N5AHN9XKRVFAHF2FSGVER2",
+  "session_id": "039996cf-294e-4b1b-85f4-54ea8ded929b",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-11T09:39:58.394959695Z",
+  "branch": "master",
+  "checkpoints_count": 6,
+  "save_step_count": 4,
+  "files_touched": [
+    "app/api/newsletters/[newsletterId]/route.ts",
+    "app/newsletters/[newsletterId]/page.tsx",
+    "app/newsletters/new/page.tsx",
+    "components/newsletter/EditNewsletterClient.tsx",
+    "components/newsletter/NewsletterForm.tsx",
+    "services/newsletter/newsletterSchemas.ts",
+    "services/newsletter/newsletterService.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5-5",
+  "turn_id": "cfe53063db0d",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 444,
+    "cache_creation_tokens": 716643,
+    "cache_read_tokens": 63483876,
+    "output_tokens": 243618,
+    "api_call_count": 220
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_01AJD8tSTAozoG17tpyR54Jg",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "anthropic-skills:chrome-browser"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "cfe53063db0d",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 1409,
+        "end": 1410,
+        "entry_ids": [
+          "96ea4255-d10f-4dc6-a83e-4a68583704f4"
+        ],
+        "tool_use_id": "toolu_01AJD8tSTAozoG17tpyR54Jg"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01AJD8tSTAozoG17tpyR54Jg"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: anthropic-skills:chrome-browser",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-11T09:39:57.814613687Z",
+    "agent_lines": 1125,
+    "agent_removed": 747,
+    "human_added": 650,
+    "human_modified": 49,
+    "human_removed": 0,
+    "total_committed": 1824,
+    "total_lines_changed": 2620,
+    "agent_percentage": 71.45038167938931,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 459,
+      "agent_lines_removed": 37
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1212,
+      "agent_lines_removed": 739
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1174,
+      "agent_lines_removed": 747
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 699,
+      "user_lines_removed": 49,
+      "agent_lines_added": 1174,
+      "agent_lines_removed": 747,
+      "user_added_per_file": {
+        ".env.example": 4,
+        "inngest/index.ts": 2,
+        "inngest/newsletterPipeline.ts": 74,
+        "package.json": 1,
+        "repositories/newsEdition.ts": 74,
+        "repositories/newsletter.ts": 9,
+        "repositories/newsletterDelivery.ts": 15,
+        "services/newsletter/editionCleanup.ts": 78,
+        "services/newsletter/newsletterLifecycle.test.ts": 324,
+        "services/newsletter/newsletterRun.ts": 118
+      },
+      "user_removed_per_file": {
+        "inngest/newsletterPipeline.ts": 43,
+        "repositories/newsletter.ts": 6
+      }
+    }
+  ]
+}

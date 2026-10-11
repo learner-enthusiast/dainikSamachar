@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4N5AHN9XKRVFAHF2FSGVER2",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "app/api/newsletters/[newsletterId]/route.ts",
+    "app/newsletters/[newsletterId]/page.tsx",
+    "app/newsletters/new/page.tsx",
+    "components/newsletter/EditNewsletterClient.tsx",
+    "components/newsletter/NewsletterForm.tsx",
+    "services/newsletter/newsletterSchemas.ts",
+    "services/newsletter/newsletterService.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 444,
+    "cache_creation_tokens": 716643,
+    "cache_read_tokens": 63483876,
+    "output_tokens": 243618,
+    "api_call_count": 220
+  }
+}
