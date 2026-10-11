@@ -1,0 +1,55 @@
+<pasted_content id="c7b8">
+Replace the landing page's video frame-bank with the standard image-sequence approach, so the FIRST scroll is
+as smooth as later ones. Keep the visual spec, scroll math, lerp, section timings and all copy unchanged.
+
+1. Frames (scripts/build-hero-frames.sh, repeatable):
+   - From the self-hosted hero video (tmp/hero-source.mp4; download from lib/landing/content.ts URL if missing),
+     extract evenly spaced frames with ffmpeg:
+       desktop: 120 frames, 1920 wide (never upscale), WebP quality ~72
+       mobile:  80 frames, 1080 wide, WebP quality ~70
+   - Output to public/landing/frames/v1/desktop/0000.webp … and /mobile/…, plus a manifest.json
+     { count, width, height }. Report total size per set; target desktop ≤ 7 MB, mobile ≤ 3.5 MB —
+     lower quality/frame count slightly if needed and tell me what you chose.
+   - next.config: Cache-Control public, max-age=31536000, immutable for /landing/frames/:path*.
+
+2. Loader (hooks/useImageSequence.ts, client only):
+   - Pick desktop/mobile set after mount (viewport < 768px → mobile).
+   - Progressive load order: frame 0 first, then every 8th, every 4th, every 2nd, then the rest.
+     Max 6 concurrent requests. Use fetch → createImageBitmap so each frame is decoded on load.
+   - Store bitmaps in an array; drawing picks the nearest LOADED frame to the target index
+     (search outward), so scrubbing works immediately and sharpens as frames arrive.
+   - Memory: on mobile keep at most ~60 bitmaps decoded; for the rest keep the Blob and decode around
+     the current index (warm window ±6). Desktop keeps all decoded.
+   - Start loading frame 0 immediately; start the rest right after first paint (don't wait for idle).
+   - Cleanup on unmount: abort fetches, close() every ImageBitmap, cancel rAF. Safe under Strict Mode.
+
+3. Rendering (ScrollHero):
+   - Remove the <video> element, mp4box, VideoDecoder, frame-bank, watchdog and their types/deps.
+   - Canvas draws the current frame with object-cover behaviour (compute cover crop for the canvas size,
+     respect devicePixelRatio, cap at 2). Redraw only when the frame index or canvas size changes.
+   - Keep the rAF lerp: currentIndex += (targetIndex - currentIndex) * (1 - exp(-dt * 8)), snap when close.
+     target = p * (count - 1).
+   - SSR/first paint: render frame 0 as a normal <img> (the poster, same crop) under the canvas so the
+     first screen is instant; fade the canvas in when frame 0 is drawn.
+   - prefers-reduced-motion: no lerp (jump to target), still frame-accurate.
+
+4. Verify in a production build (next build && next start) with cache disabled, 4× CPU throttle, Fast 4G,
+   desktop and 390px mobile:
+   - time until frame 0, until every-8th set, until all frames loaded
+   - scroll FPS on the FIRST full scroll (record a Performance trace), long tasks
+   - total bytes; second visit served from cache
+   Compare with the old frame-bank numbers.
+
+5. Remove the now-unused mp4box dependency and any CloudFront/CSP leftovers. Commit in two steps:
+   frames + script, then the loader/rendering change. Report before/after numbers.
+</pasted_content id="c7b8">
+
+---
+
+<task-notification>
+<task-id>booh4vpu8</task-id>
+<tool-use-id>toolu_01EoLGYPDQBB9vrqhdBDo4We</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/d895b667-ebf1-4c82-943a-c0dec5fbbf14/tasks/booh4vpu8.output</output-file>
+<status>failed</status>
+<summary>Background command "Start production server on port 3200" failed with exit code 143</summary>
+</task-notification>
