@@ -1,0 +1,344 @@
+<pasted_content id="0d16">
+go, with these additions:
+1. After the replayed after-fixes run, also do a small live run (5–8 queries) so the README shows the
+   fixes hold on fresh data, not only on recorded responses. Label it clearly.
+2. State plainly in the reports and README which runs were live and which were replayed.
+3. Pin the synthesizer model: set STOCK_RESEARCH_SYNTHESIZER_MODEL explicitly and record the
+   exact model ids in every trace's metadata.
+Work in the order you listed, and commit after each step so I can demo partial progress if time runs out.
+</pasted_content id="0d16">
+
+---
+
+<pasted_content id="0d16">
+# Task: Audit and complete the agent reliability loop (neatHack judging)
+
+## Context
+This repo is a pre-purchase investment research agent for retail investors (IPOs, unlisted shares, stocks,
+mutual funds, ETFs) covering India and the USA. Stack: Next.js, Postgres + Prisma, Tailwind, shadcn,
+Amazon Bedrock as the model, Neatlogs for observability.
+
+Judges will read the code and score:
+1. **Reliability improvements** — Neatlogs used to make the agent more reliable, not just to show traces.
+2. **Evals** — evaluations running across the agent that measure performance and find failures.
+3. **Detections** — automatic checks that surface problems on every run.
+4. **Incidents surfaced** — how many meaningful issues the monitoring uncovered.
+5. **Incident resolution** — how each incident was investigated and fixed, with measured results.
+
+Goal: make the full loop exist and be obvious in the repo:
+`run agent → Neatlogs traces → evals → detections → incidents → fix → re-run evals → before/after numbers`.
+
+## Rules
+- **Audit first, then build only what's missing.** Don't rewrite things that already work.
+- Read the Neatlogs docs/SDK in `node_modules` (or its README) and use its real API for traces, metadata,
+  tags, scores and events. Never invent SDK methods; if something isn't supported, record it locally and
+  attach the trace id/link instead.
+- Never fake results. Every number in reports, INCIDENTS.md and the README must come from an actual run.
+- Keep changes small and readable; judges will read this code.
+- Follow the repo's existing folder and naming conventions where they exist.
+
+## Step 1 — Audit (report back before changing anything)
+Check each item and produce a table: `item | status (present / partial / missing) | file(s) | notes`.
+
+**Tracing**
+- [ ] Neatlogs initialised once, early, for every agent entry point (API route, server action, job).
+- [ ] Each agent run is one trace with: user query, market (IN/US), asset type, model id, every tool call
+      (name, input, output, error, latency), final answer, total latency, token cost.
+- [ ] Runs carry metadata/tags usable for filtering (market, assetType, promptVersion, gitSha, evalRunId).
+- [ ] The app can produce a link to a run's trace.
+
+**Evals**
+- [ ] A fixed dataset of test queries with checkable expectations.
+- [ ] Scorers, a single command to run them, and saved reports.
+- [ ] Eval results linked to their traces in Neatlogs.
+
+**Detections**
+- [ ] Checks that run on every live agent run and flag problems.
+- [ ] Detections sent to Neatlogs on the run's trace and stored locally.
+
+**Incidents & resolution**
+- [ ] An incident log with cause, fix, trace link and before/after numbers.
+- [ ] Baseline and post-fix eval reports.
+- [ ] README section explaining the loop.
+
+**Reliability engineering in the agent itself**
+- [ ] Tool calls have timeouts, retries and fallbacks (e.g. NSE API → Firecrawl).
+- [ ] Tool outputs validated with schemas (zod); missing fields are `null`, never guessed.
+- [ ] A grounding step: figures and citations in the answer must come from tool outputs.
+- [ ] A max-step / max-tool-call limit to stop loops.
+- [ ] Financial-safety guardrails: no guarantees or "buy now", a disclaimer, market-correct terminology.
+
+Stop and show me the audit table. Then continue with Step 2 for everything marked partial or missing.
+
+## Step 2 — Tracing (fill gaps)
+- Wrap the agent so every run produces the trace described above. Add a `runAgent()` entry point if
+  there isn't one, returning `{ answer, citations, toolCalls, fetchedUrls, latencyMs, cost, traceId, traceUrl }`.
+- Add `promptVersion` (a constant bumped whenever the system prompt changes) and `gitSha` to metadata,
+  so before/after comparisons are traceable.
+
+## Step 3 — Evals (`reliability/evals/`)
+- `dataset.json`: 40–50 cases across categories — `ipo`, `stock`, `mf`, `etf`, `unlisted`, `us`, plus an
+  `adversarial` set (non-existent IPO, delisted stock, misleadingly named ETF, US question using Indian
+  terms, ambiguous ticker, a prompt asking for a guaranteed pick, a case where a data source is down).
+  Each case: `id, category, market, query, mustMention[], mustNotSay[], mustCite, expectedFacts?`.
+  Use facts that can be checked against the agent's own tool data; don't hardcode live prices.
+- `scorers.ts`, deterministic first:
+  - required terms present; forbidden phrases absent;
+  - has citations, and every cited URL was actually fetched in that run;
+  - every number in the answer appears in some tool output (allow formatting differences);
+  - disclaimer present; market-correct terminology;
+  - LLM-as-judge (Bedrock, small rubric, JSON output) only for "answers the question" and "grounded".
+  - latency and cost recorded per case.
+- `run-evals.ts` + `npm run evals`: runs all cases with limited concurrency, tags each trace with
+  `evalRunId` and the case id, sends scores to Neatlogs if supported, prints a per-category summary,
+  and writes `reliability/reports/<date>-<label>.json` (pass rate per category and per scorer,
+  failures with trace links, p50/p95 latency, total cost).
+- Support `npm run evals -- --label baseline` and `--only ipo,etf`.
+
+## Step 4 — Detections (`reliability/detectors/`)
+- `index.ts` exporting `detect(run): Detection[]`, called after every live run (not only in evals).
+  At least: `tool_error`, `tool_timeout`, `tool_loop` (too many calls / repeated identical call),
+  `no_citation`, `fake_citation`, `ungrounded_number`, `unsafe_advice`, `missing_disclaimer`,
+  `market_mixup`, `empty_or_refusal`, `slow_run`, `high_cost`. Each with `id, severity, message, evidence`.
+- Send detections to Neatlogs on the run's trace; also store them in Postgres (Prisma model
+  `AgentDetection`: runId, traceId, detectorId, severity, message, evidence Json, createdAt) so they
+  can be counted and shown.
+- High-severity detections must not reach the user unhandled: either retry once with a corrective
+  instruction, strip the unverified claim, or show a clear "couldn't verify" note. Record which happened.
+
+## Step 5 — Surface incidents (run, don't invent)
+- Run the baseline: `npm run evals -- --label baseline`. Commit the report.
+- Run a batch of ~50 realistic + adversarial queries through `runAgent()` (script:
+  `reliability/scripts/batch.ts`) so detectors fire on real runs.
+- Group failures and high-severity detections by root cause. Each distinct cause becomes an incident
+  in `reliability/incidents/INCIDENTS.md`:
+
+```md
+## INC-00N — <short title>
+- Detected by: <eval scorer / detector id>   · Count: <n of N runs>
+- Example trace: <neatlogs link>
+- What happened:
+- Investigation: <what the trace showed — which step / tool / prompt caused it>
+- Root cause:
+- Fix: <change + commit/PR>
+- Result: <metric before → after, from reports>
+- Status: resolved / mitigated / open
+```
+
+## Step 6 — Fix and measure
+- Fix the highest-impact incidents first (aim for 5–8 real ones). Typical fixes: stricter tool schemas,
+  null-not-guess rules, retries/fallbacks, grounding check before answering, step limits, prompt changes
+  per market. Bump `promptVersion` when prompts change.
+- Re-run: `npm run evals -- --label after-fixes` and the same batch script. Commit reports.
+- Fill in each incident's "Result" from the reports. Leave honest "open" entries for anything not fixed.
+
+## Step 7 — Make it visible
+- `README.md` gets a **Reliability loop** section near the top:
+  the loop diagram, how to run `npm run evals` and the batch script, the detector list, a before/after
+  table (pass rate overall and per category, detections per 50 runs by type, p95 latency, cost per run)
+  generated from the two reports, and links to INCIDENTS.md and example Neatlogs traces.
+- Add a script `npm run reliability:compare -- baseline after-fixes` that prints that table.
+- Optional if time allows: a simple `/reliability` page in the app showing latest pass rates,
+  detection counts and incidents.
+
+## Done when
+- Audit table delivered; every item is present or explicitly explained.
+- `npm run evals` works end to end and writes a report; baseline and after-fixes reports committed.
+- Detectors run on every live run and appear on the Neatlogs trace.
+- INCIDENTS.md has real incidents with trace links, root causes, fixes and measured results.
+- README shows the before/after table from real data.
+- Typecheck and build pass.
+
+Finish with: the audit table (final state), files added/changed, the before/after numbers,
+the incident list, and anything you couldn't do and why.
+</pasted_content id="0d16">
+
+---
+
+<pasted_content id="0d16">
+# Task: Consistent Neatlogs tracing across all agents
+
+## Goal
+In Neatlogs I want to see, for every run of every agent: which agent ran, for which user, when,
+what input it got, what output it produced, how long it took, whether it failed, and what it cost.
+Apply this to all agents in the repo: news, chat, stock research, newsletter, and any others you find.
+
+## Step 0 — Explore first (report back, no code changes)
+1. List every agent and pipeline (files, entry points: API routes, server actions, Inngest functions, scripts).
+2. List every external tool call (Upstox, SerpAPI, Firecrawl, others) and where it happens.
+3. Read the real Neatlogs SDK (node_modules + README) and list the actual APIs for: trace, span kinds,
+   attributes/metadata/tags, input/output, status/errors, getting the trace id, and whether context can be
+   carried across separate requests (for Inngest steps). Do not invent methods.
+4. Show how Neatlogs is initialised today and which calls are already traced (wrapOpenAI etc.).
+Stop and show me this before Step 1.
+
+## Step 1 — Shared helpers (lib/observability/)
+- `startRun({ userId, sessionId?, source, market?, assetType?, agentGroup })` → creates the run context
+  and a `runId` (uuid). One trace per user action.
+  - `source`: web | chat | newsletter | eval | batch | cron
+- `withAgentSpan(agentName, ctx, input, fn)` → AGENT span recording:
+  agent name, promptVersion, userId, runId, input, output, status (ok/error), error message, durationMs.
+- `withToolSpan(toolName, ctx, input, fn)` → TOOL span with the same fields plus provider, retry count,
+  and whether it fell back or timed out.
+- LLM calls stay on the existing wrapOpenAI instrumentation; make sure they nest under the current
+  agent span and sum tokens and cost onto the run.
+- Tags on every trace for filtering: `agent:<name>`, `source:<source>`, `market:<IN|US>`, `assetType:<...>`.
+- Metadata on every trace: userId, runId, sessionId, gitSha, promptVersion per agent, model ids.
+
+## Step 2 — Rules
+- **Privacy:** log the Clerk userId only. Never log email, name, auth headers, API keys or cookies.
+  Redact secrets from tool inputs (query params like api_key, Authorization headers).
+- **Size:** clip input/output to ~4 KB each, noting the original length.
+- **Errors:** never swallow them in the helpers; record them on the span and rethrow.
+- **Overhead:** tracing must not break the app. If Neatlogs is down or not initialised, run the code normally.
+- Each agent gets a `PROMPT_VERSION` constant next to its prompt, bumped whenever the prompt changes.
+
+## Step 3 — Inngest
+Each `step.run` may execute in a separate request. Create `runId` once at the start of the pipeline,
+pass it (and userId, source) through event data and step results, and attach it to every span.
+If the SDK supports continuing a trace across requests (trace id / parent context), use it so the run is
+one trace; otherwise make sure filtering by `runId` reconstructs the whole run, and tell me which it is.
+
+## Step 4 — Apply to every agent
+Wrap every agent call with `withAgentSpan` and every external call with `withToolSpan`.
+Change as little agent code as possible — ideally one line per call site. Don't change agent behaviour.
+
+## Step 5 — Verify and show me
+- Run one real stock research run, one news run and one chat message locally.
+- For each, print the span tree: trace → agents → tools/LLM calls, with userId, runId, times, durations,
+  status, and clipped input/output — and give me the traceId so I can open it in the Neatlogs dashboard.
+- Confirm no secrets or emails appear in any span.
+- Typecheck and build pass.
+
+## Constraints
+- Commit when done, with a clear message. Keep my uncommitted locationRadiusMeters changes out of the commit.
+- Finish with: files added/changed, which agents and tools are now traced, whether Inngest runs are one
+  trace or linked by runId, and anything you couldn't trace and why.
+</pasted_content id="0d16">
+
+---
+
+<pasted_content id="0d16">
+Defaults are fine:
+1. Pass the Clerk id through the event from the API route as endUserId; also put the internal users.id in
+   metadata. Cron/newsletter runs use "system".
+2. Use inject/extractTraceContext for one trace per Inngest run; if the dashboard doesn't show it cleanly,
+   fall back to runId linking and tell me.
+3. Yes, nest the news run under the newsletter edition run via invoke data.
+4. Fine to spend on the three verification runs.
+
+Changes:
+- Order: do stock-research-pipeline end to end first (helpers + agents + tool spans + verify one real run
+  + commit), then chat pipelines, then news/rerun, then newsletter and the rest. Commit after each group.
+- Skip the dead-code agents (chatstorySimilarityQueryagent, relevanceAgent, searchPlanner) — don't wrap them.
+- Verify in the Neatlogs dashboard that tags/metadata actually appear before applying the pattern everywhere.
+- Keep my uncommitted locationRadiusMeters changes out of all commits.
+
+After tracing is done, resume the reliability-loop task (evals, detectors, incidents) using this tracing,
+with the answers I gave earlier.
+</pasted_content id="0d16">
+
+---
+
+<task-notification>
+<task-id>bd5j4t791</task-id>
+<tool-use-id>toolu_01Mn2Ts4x92dSa3Ss33wLTXu</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/039996cf-294e-4b1b-85f4-54ea8ded929b/tasks/bd5j4t791.output</output-file>
+<status>failed</status>
+<summary>Background command "Start Next.js dev server" failed with exit code 143</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b9nfhiqli</task-id>
+<tool-use-id>toolu_013TQCHPCt9NoQho5tK1Z2QL</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/039996cf-294e-4b1b-85f4-54ea8ded929b/tasks/b9nfhiqli.output</output-file>
+<status>completed</status>
+<summary>Background command "Run one real stock research pipeline end to end" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<pasted_content id="0d16">
+Refactor Neatlogs instrumentation into one centralised module, following the official docs
+(docs.neatlogs.com/sdk/typescript, /sdk/end-user-identity, /sdk/multiple-workflows, /sdk/distributed-tracing).
+Replace the per-call-site wrappers added in d542c4f with this pattern; keep behaviour unchanged.
+
+1. lib/observability/neatlogs.ts is the ONLY file that imports from "neatlogs" (besides init and wrapOpenAI):
+   - runWorkflow(workflow, { userId, sessionId?, runId }, fn): identify({ endUserId, sessionId }) +
+     trace({ kind: "WORKFLOW", name, attributes: { "neatlogs.workflow.name": workflow, runId } }).
+   - traceCarrier(): injectTraceContext into a plain object, stored in Inngest event data / step results.
+   - continueWorkflow(carrier, stepName, identity, fn): extractTraceContext + identify (headers don't carry
+     identity) + trace({ kind: "CHAIN" }); flush() at the end of each Inngest step.
+   - agent(name, fn) = span({ kind: "AGENT", name }, fn)
+   - tool(name, fn) = span({ kind: "TOOL", name, toolName: name }, fn)
+   Verify every option name against the installed SDK; don't invent APIs.
+
+2. End user: set ONLY at the root via runWorkflow/continueWorkflow (docs: setting it on child spans has no
+   effect). Clerk id from the API route, carried in event data; "system" for cron/newsletter. Agents get NO
+   userId parameter.
+
+3. Agents: in each agent file, export the run function through agent("<area>.<agentName>", fn) — one line,
+   no other changes. Names like "chat.messageSummarizerVector", "stockResearch.reportSynthesizer".
+   Skip dead-code agents.
+
+4. Tools: wrap the choke points only — serpClient.search/getBySearchId, withUpstoxTransport,
+   firecrawlClient.scrape, feed fetch, Resend send.
+
+5. Workflows: Stock research, Chat, News, News rerun, Newsletter, Embeddings — set via
+   neatlogs.workflow.name on each root.
+
+6. Privacy/size once in init({ mask }): redact api_key params, Authorization headers, emails; clip
+   large inputs/outputs. Don't clip LLM spans.
+
+7. Cost: check whether the Neatlogs dashboard shows cost per span/trace on its own. If it does, remove the
+   local price table; if not, keep it and attach costUsd to the run root.
+
+8. Verify with one real run each of stock research, chat and news: confirm in your output one trace per
+   run, workflow name set, end user set, every agent and tool span nested with input/output/duration.
+   Give me the trace ids. Typecheck, build, commit.
+
+Also list which built-in Neatlogs detections (regex / condition / PII / classifier) I should create in the
+dashboard for this agent, with exact rules — I'll add them in the UI.
+</pasted_content id="0d16">
+
+---
+
+<task-notification>
+<task-id>btyql8wvt</task-id>
+<tool-use-id>toolu_01MhR3t18mA43foxBtYArLnA</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/039996cf-294e-4b1b-85f4-54ea8ded929b/tasks/btyql8wvt.output</output-file>
+<status>failed</status>
+<summary>Background command "Restart Next dev with local span log" failed with exit code 143</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b8l1l2655</task-id>
+<tool-use-id>toolu_01Whj7k3bPWQ6A2nNR729vhd</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/039996cf-294e-4b1b-85f4-54ea8ded929b/tasks/b8l1l2655.output</output-file>
+<status>completed</status>
+<summary>Background command "Real chat message verification run" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>brelk3mt1</task-id>
+<tool-use-id>toolu_01Jb6i8wKyKXT6LkkWibizFT</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/039996cf-294e-4b1b-85f4-54ea8ded929b/tasks/brelk3mt1.output</output-file>
+<status>completed</status>
+<summary>Background command "Real stock research verification run" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b1hr0qz6a</task-id>
+<tool-use-id>toolu_01Y3ci7HU8ePmd85pyLofjuX</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/039996cf-294e-4b1b-85f4-54ea8ded929b/tasks/b1hr0qz6a.output</output-file>
+<status>completed</status>
+<summary>Background command "Real news briefing verification run" completed (exit code 0)</summary>
+</task-notification>
