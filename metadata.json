@@ -3,7 +3,7 @@
   "checkpoint_id": "01M4QG7G3J9Y34K3N2NZR3VZ3S",
   "strategy": "manual-commit",
   "branch": "master",
-  "checkpoints_count": 3,
+  "checkpoints_count": 5,
   "files_touched": [
     "app/api/instruments/etfs/suggest/route.ts",
     "components/research/StockResearchWorkspace.tsx",
@@ -25,13 +25,20 @@
       "compact_transcript": "/1/transcript.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 606,
+    "input_tokens": 156631,
     "cache_creation_tokens": 674339,
-    "cache_read_tokens": 66107535,
-    "output_tokens": 370796,
-    "api_call_count": 303
+    "cache_read_tokens": 67620463,
+    "output_tokens": 374408,
+    "api_call_count": 305
   }
 }

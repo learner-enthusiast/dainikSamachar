@@ -1,0 +1,84 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4QG7G3J9Y34K3N2NZR3VZ3S",
+  "session_id": "bd4f75c3-e472-4340-b322-a30189204688",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-12T07:28:58.525794847Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "save_step_count": 3,
+  "files_touched": [
+    "app/api/instruments/etfs/suggest/route.ts",
+    "components/research/StockResearchWorkspace.tsx",
+    "components/research/StockSearch.tsx",
+    "repositories/instrument.ts"
+  ],
+  "agent": "Cursor",
+  "model": "composer-2.5-fast",
+  "turn_id": "667a0ea9aa9e",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 156025,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1512928,
+    "output_tokens": 3612,
+    "api_call_count": 2
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-12T07:28:58.4403245Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 882,
+    "human_modified": 104,
+    "human_removed": 0,
+    "total_committed": 882,
+    "total_lines_changed": 986,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 493,
+      "user_lines_removed": 52,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "app/api/instruments/etfs/suggest/route.ts": 5,
+        "components/research/StockResearchWorkspace.tsx": 307,
+        "components/research/StockSearch.tsx": 7,
+        "components/research/researchLandingContent.ts": 151,
+        "repositories/instrument.ts": 23
+      },
+      "user_removed_per_file": {
+        "app/api/instruments/etfs/suggest/route.ts": 2,
+        "components/research/StockResearchWorkspace.tsx": 38,
+        "components/research/StockSearch.tsx": 1,
+        "repositories/instrument.ts": 11
+      }
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 493,
+      "user_lines_removed": 52,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "app/api/instruments/etfs/suggest/route.ts": 5,
+        "components/research/StockResearchWorkspace.tsx": 307,
+        "components/research/StockSearch.tsx": 7,
+        "components/research/researchLandingContent.ts": 151,
+        "repositories/instrument.ts": 23
+      },
+      "user_removed_per_file": {
+        "app/api/instruments/etfs/suggest/route.ts": 2,
+        "components/research/StockResearchWorkspace.tsx": 38,
+        "components/research/StockSearch.tsx": 1,
+        "repositories/instrument.ts": 11
+      }
+    }
+  ]
+}
