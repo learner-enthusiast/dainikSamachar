@@ -245,3 +245,35 @@ Adjust names/fields to what Step 0 found; keep this shape. Every endpoint gets z
 Finish with: how Pro is detected, the final endpoint table, the docs URL, an example curl session (create briefing → poll → result),
 migration names, new env vars, and anything you left out of v1 and why.
 </pasted_content id="ca7c">
+
+---
+
+<pasted_content id="ca7c">
+Answers:
+1. Endpoint table approved, including the list endpoints. openapi.json stays public.
+2. Briefing dedupe: don't change requestNews. In the API layer, before calling it:
+   - existing briefing for same user/date/scope with ALL params equal (scope, location, categories,
+     customQuery, language, sources, storyCount) → 200 with the existing job, "deduplicated": true,
+     no quota charged;
+   - existing briefing for same user/date/scope but different params → 409 conflict, code "conflict",
+     message explaining one briefing per scope per day, include the existing briefing id.
+   Document both cases.
+3. Story feed filters approved. Use a composite opaque cursor (publishedAt desc, id desc). Document only
+   region values that actually work; drop the city filter from v1 docs.
+4. Newsletter email: always the account's primary email. Remove email from the API input schema and
+   document that.
+5. Yes: optional `source` param on startStockResearch / requestNews (default = current behaviour) and add
+   "api" to RunSource.
+6. Yes: Postgres limiter behind a RateLimiter interface so Upstash can replace it later. Add a daily cleanup
+   of rate-limit rows older than 2 days.
+
+Also:
+- getUserPlan must compute Pro from plan + currentPeriodEnd using isProSubscriberPlan (same grace rule);
+  never rely on lazy reconcile.
+- storyCount: 1–12, same as the UI.
+- Webhooks: if the pipelines already emit a completion event, use step.waitForEvent; otherwise your polling
+  plan (10s, 30 min max) is fine.
+- Newsletters created via the API count against the existing per-user newsletter limit.
+
+Go ahead with stage 1: plan helper, keys, Developers page.
+</pasted_content id="ca7c">
