@@ -1,0 +1,56 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4QHC01Z00X67TAHEA4608TT",
+  "session_id": "bd4f75c3-e472-4340-b322-a30189204688",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-12T07:48:54.173243531Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "save_step_count": 1,
+  "files_touched": [
+    "app/docs/api/page.tsx",
+    "components/developers/DevelopersClient.tsx",
+    "components/docs/ApiDocsIntro.tsx",
+    "lib/api/v1/docsContent.ts",
+    "lib/api/v1/openapi.ts"
+  ],
+  "agent": "Cursor",
+  "model": "composer-2.5-fast",
+  "turn_id": "bcecc50332ff",
+  "checkpoint_transcript_start": 431,
+  "transcript_lines_at_start": 431,
+  "compact_transcript_start": 104,
+  "token_usage": {
+    "input_tokens": 198191,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1468384,
+    "output_tokens": 9776,
+    "api_call_count": 1
+  },
+  "session_metrics": {
+    "turn_count": 5,
+    "context_tokens": 182511,
+    "context_window_size": 200000
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-12T07:48:54.082187427Z",
+    "agent_lines": 272,
+    "agent_removed": 13,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 272,
+    "total_lines_changed": 285,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}
