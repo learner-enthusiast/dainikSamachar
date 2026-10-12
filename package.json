@@ -18,6 +18,7 @@
     "test:news-generation": "node --import tsx --test services/news/newsGenerationRequest.test.ts services/news/newsSearchPlanning.test.ts services/news/newsRequestProgress.test.ts services/news/newsRequestPollingLogic.test.ts services/news/normalizeArticles.test.ts services/news/newsBriefingStages.test.ts",
     "test:newsletter": "node --import tsx --test services/newsletter/newsletterLifecycle.test.ts",
     "test:billing": "node --import tsx --test services/billing/razorpaySignature.test.ts",
+    "judges:commits": "node --import tsx scripts/judgesCommits.ts",
     "api:check": "node --import tsx scripts/checkOpenApi.ts",
     "test:api:unit": "node --import tsx --test lib/api/v1/api.unit.test.ts",
     "test:api": "node --import tsx --experimental-test-module-mocks --test --test-concurrency=1 lib/api/v1/api.unit.test.ts app/api/v1/api.integration.test.mts",

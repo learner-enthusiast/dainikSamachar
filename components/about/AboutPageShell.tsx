@@ -1,11 +1,11 @@
 import { ACCENT } from "@/components/about/aboutStory";
 import type { ReactNode } from "react";
 
-export function AboutPageShell({ children }: { children: ReactNode }) {
+export function AboutPageShell({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <main
       data-about-page
-      className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-background text-foreground"
+      className={`min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-background text-foreground ${className}`}
     >
       {children}
     </main>

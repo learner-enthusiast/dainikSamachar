@@ -1,10 +1,12 @@
 # Dainik Samachar
 
-Dainik Samachar is a research-oriented news intelligence application for **financial, economic, and market** topics. It turns a configured news request into a multi-story briefing, answers follow-up questions in a research chat that remembers what it already read, and can turn a chat into a persistent, source-backed story. Every synthesized output is written from scraped article text, YouTube transcripts, or previously stored research — never from search snippets or conversation history alone.
+Dainik Samachar is a research desk for **news, markets, and Indian instruments**. A reader configures a briefing and receives a ranked, source-backed set of stories; asks follow-up questions in a research chat that remembers what it already read; turns that chat into a story they own; and, on Pro, commissions long-form reports on NSE equities, ETFs, and mutual funds. The same research can leave the browser as a scheduled email digest, or as a **hosted agent**: a versioned HTTPS contract that invokes the identical pipelines without a session cookie.
 
-It is a Next.js 16 application with PostgreSQL + pgvector, Prisma 7, Clerk authentication, Inngest durable workflows, SerpAPI, Firecrawl, and OpenAI-backed agents.
+Every synthesized output is written from scraped article text, YouTube transcripts, exchange market data, or previously stored research — never from search snippets or conversation history alone.
 
-This document is the primary technical and product documentation for the repository. It describes the system **as implemented**; partially wired parts are labeled as such. `/about` is the same architecture told as a product page.
+It is a Next.js 16 application with PostgreSQL + pgvector, Prisma 7, Clerk authentication, Inngest durable workflows, SerpAPI, Firecrawl, Upstox market data, Resend email, Razorpay billing, and OpenAI-backed agents.
+
+This document is the primary technical and product documentation for the repository. It describes the system **as implemented**; partially wired parts are labeled as such. `/about` is the same architecture told as a product page. Interactive reference for the hosted agents lives at `/docs/api`.
 
 ---
 
@@ -14,6 +16,7 @@ This document is the primary technical and product documentation for the reposit
 - [The Problem](#the-problem)
 - [Product Mental Model](#product-mental-model)
 - [Core Features](#core-features)
+- [Hosted Agents](#hosted-agents)
 - [System Architecture](#system-architecture)
 - [How Dainik Samachar Works](#how-dainik-samachar-works)
 - [News Pipeline](#news-pipeline)
@@ -62,13 +65,16 @@ This document is the primary technical and product documentation for the reposit
 
 ## Overview
 
-Dainik Samachar has three user-facing research modes that share one storage layer:
+Dainik Samachar has several user-facing research modes that share one storage layer. The browser uses Clerk sessions. External programs use hosted agents (the `/api/v1` contract) with the same pipelines underneath.
 
 | Mode | What the user does | What the system produces |
 |------|--------------------|--------------------------|
 | **Briefing** | Configures a news request (date, `local`/`world`/`both` scope, location, categories, story count, language, source domains, custom query) | Up to `storyCount` ranked `NewsStory` rows, each with `NewsSource` evidence rows |
 | **Research chat** | Asks a question in a chat session, or opens a **deep dive** on a public story | An assistant Markdown reply grounded in scraped `ResearchSource` rows; the session accumulates reusable research |
 | **Chat → story** | Asks the chat to write a story | A private draft `NewsStory` owned by the user, generated asynchronously from the research the chat already gathered |
+| **Instrument research** | Picks an NSE equity, ETF, or mutual fund and a question (`/stockResearch`, `/etfResearch`, `/MfResearch`) | A Markdown `StockResearch` report with quote, fundamentals or holdings, news, and a cited answer |
+| **Newsletter** | Schedules a digest (`/newsletters`) on a daily, weekday, weekly, or monthly cadence | An email, via Resend, of a shared `NewsEdition` built by the news pipeline |
+| **Hosted agents** | Calls `/api/v1` with a Pro API key | The same briefings, reports, stories, instrument search, and newsletters, plus jobs and signed webhooks |
 
 What distinguishes the implementation:
 
@@ -77,8 +83,10 @@ What distinguishes the implementation:
 - **Decision agents, not one prompt.** A guardrail classifier, a query enhancer, and a *determiner* decide whether to search, what to search, whether to scrape user-provided URLs, whether to pull YouTube evidence, and whether the user wants a story.
 - **Durable background work.** Research takes minutes; every pipeline is an Inngest function with step checkpoints, idempotency keys, timeouts, and failure notifications.
 - **Scoped domain.** Guardrails restrict chat research to financial, economic, company, market, trade, and commodity topics.
-- **Pro access (optional).** Razorpay one-time checkout grants time-boxed Pro (`User.plan` + `Subscription.currentPeriodEnd`) with a **5-day grace** after period end; some nav routes and research pages are Pro-gated server-side.
+- **Pro access (optional).** Razorpay one-time checkout grants time-boxed Pro (`User.plan` + `Subscription.currentPeriodEnd`) with a **5-day grace** after period end. Instrument research pages and hosted-agent keys require an active Pro plan.
 - **Incremental briefing refresh.** A fulfilled briefing can be **rerun** to discover new sources since the last completion, update existing stories, or add net-new stories without creating a second `NewsRequest`.
+- **Scheduled distribution.** Newsletters reuse one briefing per parameter fingerprint and period, then email that edition instead of regenerating the same research for every subscriber.
+- **Hosted invocation.** The public API is the same research, addressed by a bearer key, scopes, quotas, and asynchronous jobs rather than by a browser session.
 
 ---
 
@@ -107,7 +115,9 @@ USER
   ├── Deep-dive a public story        (story page → chat)
   ├── Ask the chat to write a story   (draft → edit → publish)
   ├── Upgrade to Pro                  (/pricing → Razorpay Checkout)
-  └── Pro research surfaces           (/stockResearch, /MfResearch, /etfResearch)
+  ├── Instrument research             (/stockResearch, /etfResearch, /MfResearch)
+  ├── Schedule a digest               (/newsletters)
+  └── Invoke a hosted agent           (/settings/developers → /api/v1, docs at /docs/api)
            │
            ▼
    RESEARCH ENGINE (Inngest functions)
@@ -248,12 +258,43 @@ Clerk handles sign-in/sign-up. Each authenticated request upserts a local `User`
 
 See [Billing and Pro Subscription](#billing-and-pro-subscription).
 
+### Instrument research (equities, ETFs, mutual funds)
+
+**Purpose** — Answer a specific question about one Indian instrument with exchange data and scraped pages, then write a structured report.
+
+**User flow** — Pro subscribers open `/stockResearch` (NSE equities), `/etfResearch` (NSE and BSE ETFs), or `/MfResearch` (mutual funds). They search an instrument, optionally pick a sample question, and submit. History pages list prior runs. A report page polls until the row is `COMPLETED` or `FAILED`.
+
+**System flow** — `POST /api/stockResearch` creates a `StockResearch` row (`assetType` `STOCK`, `ETF`, or `MUTUAL_FUND`) and emits `stock/research.requested`. The Inngest function enhances the prompt, lets a tool determiner choose Upstox and search calls, persists raw payloads as `StockResearchResource` rows, selects and scrapes links, then synthesizes `reportMarkdown`. Mutual-fund runs follow the fund tool plan in `Agents/stockResearch/assetProfiles.ts` rather than the equity option-chain path.
+
+**Output** — A Markdown report whose sections follow the asset profile: for a stock, summary, price snapshot, fundamentals, ownership, recent news, and bull/bear risks; for an ETF, costs, tracking, liquidity, and holdings; for a fund, category, returns, portfolio, and costs.
+
+**Coverage** — NSE-listed equities (not BSE-only or foreign listings). ETFs on NSE and BSE, including Indian ETFs that track global indices. Listed mutual-fund units the instrument index can resolve. Instrument rows come from the Upstox beginning-of-day file (`pnpm instruments:sync`).
+
+### Newsletters
+
+**Purpose** — Deliver a recurring briefing to the account email without the reader opening the app.
+
+**User flow** — `/newsletters` lists digests. `/newsletters/new` sets name, scope, location, categories, story count, language, source domains, custom query, and a schedule: daily, weekdays, weekly (day of week), or monthly (day of month), plus a local send time and timezone. The owner can pause, resume, send a test, or delete. `/unsubscribe` honors a signed link.
+
+**System flow** — A scheduler claims due rows and enqueues a run. Runs that share a parameter fingerprint and period share one `NewsEdition`, which is a `NewsRequest` built by the news pipeline. `NewsletterDelivery` records pending, sent, and failed attempts and stores the Resend message id. The per-user cap is enforced in `newsletterService` (`NewsletterLimitError`).
+
+**Output** — An email whose stories are the edition’s `NewsStory` rows. Deliveries are visible on the newsletter page.
+
+### Usage
+
+**Purpose** — Show what a Pro account has spent on external providers and on hosted-agent pipelines.
+
+**User flow** — Settings → Developers (`/settings/developers`) shows API keys and a usage card for the current IST month: SerpAPI and Firecrawl credits, attributed by feature (briefings, chat, instrument research, and so on). `GET /api/v1/me` reports today’s pipeline jobs against the daily quota. `/admin/usage` is the operator view.
+
+**System flow** — Provider responses are scored by `lib/usage/creditRules.ts` (Serp search and archive calls; Firecrawl `metadata.creditsUsed` when present). A reconcile job keeps the ledger aligned. Hosted-agent quotas are separate: they count accepted briefing and research jobs per UTC day, not provider credits.
+
 ### Upstox market data (optional, server-only)
 
-Read-only **Analytics Token** integration for Pro financial research (no user OAuth, no trading):
+Read-only **Analytics Token** integration used by instrument research (no user OAuth, no trading):
 
 - `clients/upstoxClient.ts` — HTTP client (`Authorization: Bearer UPSTOX_ANALYTICS_TOKEN`)
 - `services/upstox/*` — quotes, historical candles (V3), fundamentals, FII/DII, OI, max pain, PCR, option chain
+- `Instrument` rows — beginning-of-day universe for suggest and hosted-agent instrument search
 
 Set `UPSTOX_ANALYTICS_TOKEN` in `.env.local`. Verify with `pnpm upstox:test`. Tests: `pnpm test:upstox`.
 
@@ -266,6 +307,68 @@ Set `UPSTOX_ANALYTICS_TOKEN` in `.env.local`. Verify with `pnpm upstox:test`. Te
 - **`Script` model** exists in Prisma (podcast/script artifact with `researchSourceIds`) but has no API route, service, or UI.
 - **`ChatMessageEmbedding`** rows are produced by a background indexer, but no live pipeline queries them yet.
 - **`relevanceAgent`** and **`chatstorySimilarityQueryagent`** exist under `Agents/chat` but are not imported by any pipeline.
+
+---
+
+## Hosted Agents
+
+A hosted agent is a remotely addressable research faculty. The caller does not import an agent, open a model session, or hold a browser cookie. It presents a cryptographic bearer attestation (`Authorization: Bearer ds_live_…`), names an operation on `/api/v1`, and receives either a synchronous reading of canonical state or an asynchronous job whose terminality is observed by polling or by a signed webhook. Under that contract the same Inngest functions, evidence rows, and synthesizers run as they do for a signed-in reader. The complication is in the invocation envelope — authentication, scope, idempotency, quota, deduplication, and completion — not in a second research stack.
+
+Interactive reference, generated from the OpenAPI document the server actually enforces, is at `/docs/api`. Machine-readable contract: `GET /api/v1/openapi.json`. Keys are minted at `/settings/developers` and are usable only while the owning account is on an active Pro plan. A lapsed plan answers `403 plan_required`; the key row is retained.
+
+### Invocation envelope
+
+| Concern | Mechanism |
+|---------|-----------|
+| Identity | Bearer key. Only a SHA-256 digest is stored. A lost secret cannot be reconstructed; it is revoked and replaced. Expiry may be 30 days, 90 days, 365 days, or none. |
+| Authorization lattice | Scopes chosen at creation: `news:read`, `news:write`, `research:read`, `research:write`, `instruments:read`, `newsletters:read`, `newsletters:write`. A missing scope answers `403 forbidden` with `details.requiredScope`. `GET /me` accepts any live key. |
+| Throughput | Per-key rolling minute (`API_PRO_REQUESTS_PER_MINUTE`, default 60) and a per-account UTC-day ceiling on accepted pipeline jobs (`API_PRO_PIPELINE_JOBS_PER_DAY`, default 50). Active keys per account default to 10. |
+| Idempotent dispatch | `Idempotency-Key` on pipeline posts. Reuse with a different body or path answers `idempotency_key_reused`. A key whose first request is still in flight answers `conflict`. |
+| Synchronous reads | Stories, briefings, reports, jobs, instrument search, newsletters, and `/me` return JSON in one round trip and do not consume the daily pipeline quota. |
+| Asynchronous actuation | `POST /news/briefings` and `POST /research/reports` enqueue work and answer **202** with a job. Completion is minutes, not milliseconds. |
+| Terminal notification | Optional `webhookUrl` on those posts. Delivery is an Inngest function (`api-v1-job-webhook`) with a signature derived from the account webhook secret (`/api/developers/webhook-secret`). |
+| Coalescence | A briefing whose date, scope, and location already exist for the account returns the existing briefing (**200**) instead of opening a second pipeline. That hit does not consume quota. |
+| Provenance | Lists and reads return only the caller’s briefings, reports, newsletters, and jobs. Public stories are readable with `news:read` and are not owned by the caller. Instrument search is global reference data. |
+
+Request bodies must be JSON, at most 64 KB. Errors use a stable `code` (`invalid_request`, `unauthorized`, `plan_required`, `forbidden`, `not_found`, `conflict`, `rate_limited`, `quota_exceeded`, `limit_reached`, and others). `Retry-After` accompanies rate and quota failures. `X-Request-Id` may be supplied for support; the server echoes one on internal errors.
+
+### Agent catalogue
+
+Each row is one hosted agent: a narrow contract over a pipeline that already exists in the application.
+
+| Hosted agent | Contract | What it deliberates over | Disposition |
+|--------------|----------|--------------------------|-------------|
+| **Account oracle** | `GET /me` | Plan, key metadata, limits, pipeline jobs consumed today | Synchronous |
+| **Corpus reader** | `GET /stories`, `GET /stories/{id}` | Public stories, newest `publishedAt` first. Scope `news:read` | Synchronous |
+| **Briefing archivist** | `GET /news/briefings`, `GET /news/briefings/{id}` | The caller’s briefings; `stories` populated after success. Scope `news:read` | Synchronous |
+| **Briefing compositor** | `POST /news/briefings` | Scope, location, categories, story count, language, domains, custom query. Scope `news:write`. Emits the news pipeline | Asynchronous job |
+| **Instrument lexicographer** | `GET /instruments/search?q=` | Stocks, ETFs, and mutual funds in the local instrument index. Returns `instrumentKey` for the report agent. Scope `instruments:read` | Synchronous |
+| **Report archivist** | `GET /research/reports`, `GET /research/reports/{id}` | The caller’s equity, ETF, and fund reports; `reportMarkdown` when complete. Scope `research:read` | Synchronous |
+| **Report compositor** | `POST /research/reports` | An `instrumentKey` plus a question. Scope `research:write`. Emits `stock/research.requested` | Asynchronous job |
+| **Job observer** | `GET /jobs/{id}` | Live status and, on success, `resource.url`. Briefing jobs need `news:read`; research jobs need `research:read` | Synchronous |
+| **Digest steward** | `GET`/`POST /newsletters`, `GET`/`PATCH`/`DELETE /newsletters/{id}`, `POST …/pause`, `POST …/resume` | Scheduled digests delivered to the account email. Read and write scopes are separate. Creation counts against the per-user newsletter cap | Synchronous |
+
+### A briefing, end to end
+
+```bash
+export DS_API_KEY="ds_live_..."
+
+curl -X POST "$APP_URL/api/v1/news/briefings" \
+  -H "Authorization: Bearer $DS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"scope":"world","storyCount":5,"categories":["markets"]}'
+# 202 { "id": "<job id>", "status": "pending", ... }
+
+curl "$APP_URL/api/v1/jobs/<job id>" -H "Authorization: Bearer $DS_API_KEY"
+# status succeeded → resource.url is the briefing
+```
+
+Poll the job every several seconds until `status` is `succeeded` or `failed`, then `GET` `resource.url` with the same bearer token and read `stories`. A `webhookUrl` on the original post replaces the poll: the platform posts a signed body when the job reaches a terminal state.
+
+### What a hosted agent is not
+
+It is not a general chat completion endpoint, not a tool the caller hosts, and not a separate model deployment. Guardrails, search planning, scraping, and synthesis stay on this server. The caller supplies parameters and receives artifacts — stories, Markdown reports, newsletter rows, job records — whose evidence was gathered by the pipelines documented below.
 
 ---
 
@@ -331,11 +434,11 @@ Search helpers (`SERP/index.ts`, `services/chat/chatSerpResearch.ts`, `services/
 
 ### AI / agent layer
 
-`Agents/news/*` and `Agents/chat/*` wrap `clients/AIClient.ts`. Each agent has a Zod output schema and a resolvable model (`lib/openAiModel.ts`: call override → agent env var → `OPENAI_MODEL` → `gpt-4o-mini`). See [AI Agent Architecture](#ai-agent-architecture).
+`Agents/news/*`, `Agents/chat/*`, and `Agents/stockResearch/*` wrap `clients/AIClient.ts`. Each agent has a Zod output schema and a resolvable model (`lib/openAiModel.ts`: call override → agent env var → `OPENAI_MODEL` → `gpt-4o-mini`). See [AI Agent Architecture](#ai-agent-architecture).
 
 ### Background processing
 
-Eight Inngest functions registered in `inngest/index.ts` and served at `app/api/inngest/route.ts`. See [Background Processing](#background-processing).
+Inngest functions registered in `inngest/index.ts` and served at `app/api/inngest/route.ts`: news, rerun, four newsletter jobs, two chat paths, chat-story, stock research, two embedding indexers, potential story topics, provider-usage reconcile, hosted-agent webhook delivery, and hosted-agent maintenance. See [Background Processing](#background-processing).
 
 ### Persistence
 
@@ -347,13 +450,13 @@ pgvector `vector(1536)` columns on `chat_resource_embeddings` and `chat_message_
 
 ### External services
 
-SerpAPI, Firecrawl, OpenAI, Clerk, Inngest. See [External Research Services](#external-research-services).
+SerpAPI, Firecrawl, OpenAI, Upstox, Resend, Razorpay, Clerk, Inngest. See [External Research Services](#external-research-services).
 
 ---
 
 ## How Dainik Samachar Works
 
-Three research paths share the same services but do different jobs:
+News, chat, and chat-story still share services but do different jobs. Newsletters reuse the news path. Instrument research is its own pipeline. Hosted agents dispatch into whichever of those pipelines the contract names:
 
 | Path | Trigger | Scope | Output |
 |------|---------|-------|--------|
@@ -1044,6 +1147,18 @@ Google's AI Overview block is read from `searchGoogle` payloads. It is **not** u
 
 All agents and embeddings. Configured by `OPENAI_API_KEY`, `OPENAI_MODEL`, optional base URL / project, and per-agent model overrides.
 
+### Upstox
+
+Read-only analytics token. Quotes, candles, fundamentals, and derivatives statistics for instrument research. The beginning-of-day instrument file is synced into `Instrument` and is what suggest and the instrument lexicographer search.
+
+### Resend
+
+Transactional email for newsletter editions. `EMAIL_FROM` is the From header. Unsubscribe links are signed with `UNSUBSCRIBE_SECRET`.
+
+### Razorpay
+
+One-time Orders for Pro. See [Billing and Pro Subscription](#billing-and-pro-subscription).
+
 ### Clerk and Inngest
 
 Identity and durable execution respectively; see the dedicated sections.
@@ -1072,7 +1187,15 @@ flowchart LR
 | `chat/story.research.requested` | message chat pipeline | `chat-story-pipeline` | `event.data.storyId` | 45 m |
 | `research/source.index.requested` | `createResearchSource` (fire-and-forget) | `research-source-description-index` | — | 15 m |
 | `chat/message.index.requested` | `createChatMessage` (fire-and-forget) | `chat-message-embedding-index` | — | 15 m |
-| `chat/potential-story-topics.requested` | message chat pipeline after reply | `chat-potential-story-topics` | `event.data.chatMessageId` | 15 m |
+| `chat/potential-story-topics.requested` | message chat pipeline after reply | `chat-potential-story-topics` | `event.data.chatMessageId` | 10 m |
+| `stock/research.requested` | `POST /api/stockResearch`, hosted-agent `POST /research/reports` | `stock-research-pipeline` | `event.data.stockResearchId` | 30 m |
+| `newsletter/run` | scheduler (every 5 minutes) and test send | `newsletter-run` | event id per newsletter and slot | — |
+| `newsletter/edition.build` | newsletter run | `newsletter-edition-build` | concurrency on fingerprint + period | — |
+| cron `*/5 * * * *` | Inngest | `newsletter-scheduler` | — | — |
+| cron `30 3 * * *` | Inngest | `newsletter-edition-cleanup` | — | — |
+| `api/job.webhook.requested` | hosted-agent job create | `api-v1-job-webhook` | `event.data.jobId` | polls up to 30 m |
+| cron `15 3 * * *` | Inngest | `api-v1-maintenance` | drops old rate-limit windows and expired idempotency keys | — |
+| cron `TZ=Asia/Kolkata 0 6 * * *` | Inngest | `provider-usage-reconcile` | compares recorded SerpAPI and Firecrawl credits with provider usage APIs | — |
 
 Why Inngest: research runs for minutes and calls flaky external APIs. `step.run` memoizes completed steps so a retry resumes rather than restarts; `onFailure` hooks write user-visible failure state; parallel `Promise.all` of steps runs independent branches concurrently. Locally, `pnpm inngest:dev` runs the dev server against `/api/inngest`. In production the SDK runs in dev mode (`INNGEST_DEV=1`) against a self-hosted dev server.
 
@@ -1140,6 +1263,18 @@ Retrieval indexes (`vector(1536)`), keyed one-to-one to their source row, scoped
 ### SearchAutocompleteCache
 `(provider, query)` unique → `response` JSON, `expiresAt`. Provider encodes source, language, and a coarse geo cell.
 
+### Newsletter / NewsletterDelivery / NewsEdition
+A digest the user scheduled (`frequency`, local send time, timezone, scope, categories, story count). A delivery is one attempt. An edition is the shared `NewsRequest` for a parameter fingerprint and period, so identical digests do not each run the news pipeline.
+
+### Instrument
+One Upstox beginning-of-day row per `instrumentKey` (segment, exchange, trading symbol, name, optional ISIN and derivative fields). Suggest endpoints and the hosted-agent instrument search read this table.
+
+### StockResearch / StockResearchResource
+A Pro report job: `assetType` (`STOCK`, `ETF`, `MUTUAL_FUND`), instrument identity, original `userPrompt`, enhanced `query`, `status`, `reportMarkdown`, `loadingLogs`. Resources are the raw Upstox, search, and scraped pages the synthesizer read.
+
+### ApiKey and related hosted-agent tables
+Defined alongside the public API: hashed keys and scopes, jobs, idempotency keys, rate-limit windows, and the per-account webhook secret. The plaintext key is shown once at creation.
+
 ### Script
 Schema only (`title`, `content`, `durationSeconds`, `style`, `status`, `researchSourceIds[]`). No runtime code uses it yet.
 
@@ -1147,8 +1282,8 @@ Schema only (`title`, `content`, `durationSeconds`, `style`, `status`, `research
 
 | Kind | Tables |
 |------|--------|
-| Canonical | `User`, `NewsRequest`, `ChatSession`, `ChatMessage`, `ResearchSource`, `NewsSource`, `NewsStoryVote`, `Notification` |
-| Derived output | `NewsStory` (synthesized), `NewsStory.upvotes/downvotes` (counters), `users.saved_stories` |
+| Canonical | `User`, `NewsRequest`, `ChatSession`, `ChatMessage`, `ResearchSource`, `NewsSource`, `NewsStoryVote`, `Notification`, `Newsletter`, `Instrument`, `StockResearch`, `StockResearchResource` |
+| Derived output | `NewsStory` (synthesized), `NewsStory.upvotes/downvotes` (counters), `users.saved_stories`, `NewsEdition`, `StockResearch.reportMarkdown` |
 | Index | `ChatResourceEmbedding`, `ChatMessageEmbedding`, `SearchAutocompleteCache` |
 
 ---
@@ -1434,6 +1569,12 @@ In prose: a user action creates a canonical record and an event. For chat paths,
 | Message memory (indexed only) | `chatMessageEmbeddingFunction` | `ChatMessageEmbedding` |
 | Chat titles | `chatSessionTitleAgent` via chat pipeline | `ChatSession.title` |
 | UI suggestions | `QuickActionAgent`, `TryTheseQuestionAgent` | JSON suggestions |
+| Instrument research | Stock research pipeline (`stock/research.requested`) | `StockResearch.reportMarkdown`, `StockResearchResource` |
+| Instrument suggest | Instrument repositories + Upstox BOD index | Search hits for equities, ETFs, funds |
+| Newsletters | Scheduler, edition build, run, cleanup | `Newsletter`, `NewsEdition`, `NewsletterDelivery`, Resend email |
+| Hosted agents | `/api/v1` handlers + the pipelines above | JSON resources and `ApiJob` rows; optional signed webhook |
+| API keys | `services/developers/apiKeyService` | Hashed keys, scopes, expiry, revocation |
+| Provider usage | `lib/usage/creditRules.ts`, reconcile job | Credit ledger for SerpAPI and Firecrawl |
 | Location autocomplete | `autocompleteServerCache` → `autocompleteDbCache` → SerpAPI | Suggestions, `SearchAutocompleteCache` |
 | Reverse geocoding | `resolveUserLocation` | Location label |
 | Notifications | `pipelineNotifications` | `Notification` |
@@ -1485,10 +1626,11 @@ Pages render on the server; client components are limited to forms, polling, cha
 ```text
 .
 ├── app/                     # Next.js App Router: pages + app/api/* route handlers
-│   ├── api/                 # news, newsStoryChat, chat, billing, payments, notifications, location, me, inngest
-│   ├── news/, newsStory/, chat/, pricing/, stockResearch/, MfResearch/, etfResearch/, about/, feature-request/
+│   ├── api/                 # session routes plus app/api/v1 hosted agents, developers, newsletters
+│   ├── news/, newsStory/, chat/, newsletters/, pricing/, stockResearch/, MfResearch/, etfResearch/
+│   ├── docs/api/, settings/developers/, about/, feature-request/, admin/usage/
 │   └── sign-in/, sign-up/   # Clerk
-├── Agents/                  # LLM agents (news/ and chat/) with Zod output schemas
+├── Agents/                  # LLM agents (news/, chat/, stockResearch/) with Zod output schemas
 ├── clients/                 # AIClient, Serp, Firecrawl, Inngest, Upstox, env validation, logging, photo upload
 ├── components/              # UI: news/, chat/, landing/, about/, marketing/, notifications/, ui/
 ├── db/
@@ -1502,7 +1644,8 @@ Pages render on the server; client components are limited to forms, polling, cha
 ├── inngest/                 # Pipeline functions + index.ts registry
 ├── lib/                     # auth, model resolution, location client cache, utils
 ├── repositories/            # Thin Prisma access (one file per model, plus pgvector raw SQL)
-├── services/                # Business logic: news/, chat/, billing/, location/, notifications/, firecrawl/
+├── services/                # Business logic: news/, chat/, stockResearch/, newsletter/, billing/, developers/, upstox/, location/, notifications/, firecrawl/
+├── lib/api/v1/              # Hosted-agent contract: auth, scopes, quotas, jobs, webhooks, OpenAPI
 ├── SERP/                    # SerpAPI engine catalog and helpers
 ├── scripts/                 # Ops SQL (production migration-history repair)
 ├── instrumentation.ts       # Loads env validation at server start
@@ -1598,7 +1741,14 @@ Values are never committed. Required variables cause a startup error when missin
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | No | If set, must match `RAZORPAY_KEY_ID` |
 | `RAZORPAY_WEBHOOK_SECRET` | No | Defaults to `RAZORPAY_KEY_SECRET` |
 | `BILLING_PRO_MONTHLY_PAISE` | No | Default `19900` (₹199) |
-| `UPSTOX_ANALYTICS_TOKEN` | No | Server-only read-only market data (`clients/upstoxClient.ts`, `services/upstox/*`) |
+| `UPSTOX_ANALYTICS_TOKEN` | No | Server-only read-only market data for instrument research |
+| `RESEND_API_KEY`, `EMAIL_FROM` | No | Newsletter delivery. Startup allows a missing key; sends fail until it is set |
+| `APP_URL` | No | Absolute links in email and hosted-agent examples (default `http://localhost:3000`) |
+| `UNSUBSCRIBE_SECRET` | No | Signs newsletter unsubscribe links |
+| `SYSTEM_USER_CLERK_ID` | No | Clerk id of the system user that owns generated briefings (`pnpm system-user:seed`) |
+| `API_PRO_REQUESTS_PER_MINUTE` | No | Hosted-agent rate limit per key (default 60) |
+| `API_PRO_PIPELINE_JOBS_PER_DAY` | No | Accepted briefing and research jobs per account per UTC day (default 50) |
+| `API_PRO_MAX_ACTIVE_KEYS` | No | Live keys per Pro account (default 10) |
 
 \* Razorpay is optional for local dev unless you exercise `/pricing` checkout.
 
@@ -1614,7 +1764,9 @@ Values are never committed. Required variables cause a startup error when missin
 | Lint | `pnpm lint` |
 | Typecheck | `pnpm typecheck` |
 | Prisma | `pnpm db:generate` · `pnpm db:migrate` · `pnpm db:migrate:deploy` · `pnpm db:push` · `pnpm db:studio` · `pnpm db:migrate:reset` |
-| Tests (Node test runner via tsx) | `pnpm test:guardrails` · `pnpm test:query-enhancer` · `pnpm test:small-determiner` · `pnpm test:youtube-transcript` · `pnpm test:youtube-video` · `pnpm test:youtube-research` · `pnpm test:story-votes` · `pnpm test:news-generation` · `pnpm test:billing` |
+| Tests (Node test runner via tsx) | `pnpm test:guardrails` · `pnpm test:query-enhancer` · `pnpm test:small-determiner` · `pnpm test:youtube-transcript` · `pnpm test:youtube-video` · `pnpm test:youtube-research` · `pnpm test:story-votes` · `pnpm test:news-generation` · `pnpm test:newsletter` · `pnpm test:billing` · `pnpm test:api` · `pnpm test:usage` · `pnpm test:upstox` |
+| Instruments / metros | `pnpm instruments:sync` · `pnpm news:metros:seed` · `pnpm system-user:seed` |
+| Hosted-agent contract | `pnpm api:check` |
 
 Adding a pipeline step: add `step.run("name", …)` in the relevant `inngest/*.ts`; keep side effects inside steps. Adding a function: export it from `inngest/index.ts` and add it to `inngestFunctions`. Schema change: edit `db/schema/schema.prisma` → `pnpm db:migrate` → update repositories.
 
@@ -1622,7 +1774,9 @@ Adding a pipeline step: add `step.run("name", …)` in the relevant `inngest/*.t
 
 ## API Architecture
 
-All routes are under `app/api`. Auth = `requireAuthenticatedUser()` unless noted. Long work is asynchronous: the route returns immediately and the client polls.
+Routes under `app/api` (except `app/api/v1` and a few public reads) authenticate with Clerk via `requireAuthenticatedUser()`. Long work is asynchronous: the route returns immediately and the client polls.
+
+**Hosted agents** — `app/api/v1/*` — use API keys, scopes, rate limits, and quotas instead of a browser session. See [Hosted Agents](#hosted-agents). Session routes below are the in-app equivalents.
 
 | Method | Route | Auth | Purpose | Async |
 |--------|-------|------|---------|-------|
@@ -1652,6 +1806,16 @@ All routes are under `app/api`. Auth = `requireAuthenticatedUser()` unless noted
 | `GET` | `/api/chat/[chatSessionId]/stories`, `/stories/count` | Yes | Stories created from this session | — |
 | `GET` | `/api/chat/quickactions/[chatSessionId]`, `/api/chat/trythesequestion/[chatSessionId]` | Yes | UI suggestions | — |
 | `GET` | `/api/notifications` · `POST /read-all` · `GET/PUT/PATCH/DELETE /[id]` · `PATCH`/`POST /[id]/read` | Yes | Notifications | Poll |
+| `GET` / `POST` | `/api/stockResearch`, `/api/stockResearch/[id]` | Pro | Create or poll an equity, ETF, or fund report | Yes / Poll |
+| `GET` | `/api/instruments/suggest`, `/mutual-funds/suggest`, `/etfs/suggest` | Yes | Instrument autocomplete for the research forms | — |
+| `GET` / `POST` | `/api/newsletters` | Yes | List or create a digest | — |
+| `GET` / `PATCH` / `DELETE` | `/api/newsletters/[id]` | Yes | Read, update, or delete a digest | — |
+| `POST` | `/api/newsletters/[id]/pause` | Yes | Set `isActive` (pause or resume) | — |
+| `POST` | `/api/newsletters/[id]/test` | Yes | Send a test edition | Yes |
+| `POST` | `/api/newsletters/unsubscribe` | Signed link | Stop a digest | — |
+| `GET` / `POST` | `/api/developers/keys`, `DELETE /[keyId]` | Pro | Mint or revoke hosted-agent keys | — |
+| `*` | `/api/developers/webhook-secret` | Pro | Read or rotate the webhook signing secret | — |
+| `*` | `/api/v1/*` | API key | Hosted agents (stories, briefings, research, jobs, instruments, newsletters, `/me`) | Reads sync; briefings and reports async |
 | `GET` | `/api/location/autocomplete` | No | Cached Maps autocomplete | — |
 | `POST` | `/api/location/reverse` | No | Coordinates → location label | — |
 | `GET` / `PUT` / `PATCH` / `DELETE` | `/api/me` | Yes | Current user profile | — |
@@ -1733,7 +1897,8 @@ So: a single host runs Next.js as a systemd service (`newsly`), reads `.env` fro
 - Database constraints back invariants: unique votes per user/story, unique notification dedupe keys, unique embedding per source, unique `(provider, query)` cache rows, cascading deletes from users/sessions/stories.
 - AI error messages are redacted of API-key-like tokens before surfacing.
 - Cover-photo uploads are owner-only, MIME- and size-checked (≤ 5 MB), and stored through server-side Cloudinary/S3 credentials.
-- Not implemented: rate limiting, CSRF beyond framework defaults, content-security headers beyond Next defaults.
+- Hosted agents (`/api/v1`) add bearer-key auth, per-key rate limits, daily pipeline quotas, idempotency keys, and signed job webhooks. Session routes under `/api` do not share that limiter.
+- Not implemented on session routes: a general rate limit, CSRF beyond framework defaults, content-security headers beyond Next defaults.
 
 ---
 
@@ -1750,8 +1915,9 @@ So: a single host runs Next.js as a systemd service (`newsly`), reads `.env` fro
 - **Story retries** — A failed chat-origin story is not retried automatically; the user creates a new one.
 - **Unwired code** — `Script` model, `relevanceAgent`, `chatstorySimilarityQueryagent`.
 - **Single-host deployment** with Inngest dev mode; no horizontal scaling story in the repo.
-- **Pro billing** — One-time Orders only; no auto-renewal or Razorpay Subscription plans; manual repurchase after period + grace.
-- **Upstox** — Client module only; no production UI flow wired yet.
+- **Pro billing** — One-time Orders only; no auto-renewal or Razorpay Subscription plans; manual repurchase after period + grace. Hosted-agent keys stop working when Pro lapses.
+- **Instrument coverage** — Equities are NSE-listed names in the Upstox instrument file. BSE-only stocks and foreign listings are out of scope. Research needs `UPSTOX_ANALYTICS_TOKEN`.
+- **Newsletters** — Delivery depends on Resend and on the news pipeline finishing an edition. One digest is shared across subscribers with the same parameters; it is not a per-recipient rewrite.
 
 ---
 
@@ -1769,6 +1935,7 @@ So: a single host runs Next.js as a systemd service (`newsly`), reads `.env` fro
 - Cross-session (per-user) research reuse with appropriate scoping.
 - Retry path for failed chat-origin stories.
 - Integrate or remove `relevanceAgent` and `chatstorySimilarityQueryagent`.
+- Recurring Razorpay subscriptions so Pro, and therefore hosted-agent keys, renew without a manual repurchase.
 
 ---
 
