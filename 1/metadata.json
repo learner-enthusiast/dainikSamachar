@@ -1,0 +1,99 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4QG7G3J9Y34K3N2NZR3VZ3S",
+  "session_id": "41aca42c-b5e9-4954-90c9-f551414af9a7",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-12T07:28:57.972367555Z",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "save_step_count": 2,
+  "files_touched": [
+    "app/api/instruments/etfs/suggest/route.ts",
+    "components/research/StockResearchWorkspace.tsx",
+    "components/research/StockSearch.tsx",
+    "components/research/researchLandingContent.ts",
+    "repositories/instrument.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5-5",
+  "turn_id": "f0fd820c194a",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 340,
+    "cache_creation_tokens": 334753,
+    "cache_read_tokens": 37184560,
+    "output_tokens": 177339,
+    "api_call_count": 170
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_019qvdSWH8BSycN7FrPuV27E",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "dataviz"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "04d2035863f7",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 1145,
+        "end": 1146,
+        "entry_ids": [
+          "88f7dc02-8526-4d57-9bf1-104af8aa1a0c"
+        ],
+        "tool_use_id": "toolu_019qvdSWH8BSycN7FrPuV27E"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_019qvdSWH8BSycN7FrPuV27E"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: dataviz",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-12T07:28:57.842131589Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 592,
+    "human_modified": 52,
+    "human_removed": 0,
+    "total_committed": 592,
+    "total_lines_changed": 644,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 493,
+      "user_lines_removed": 52,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "app/api/instruments/etfs/suggest/route.ts": 5,
+        "components/research/StockResearchWorkspace.tsx": 307,
+        "components/research/StockSearch.tsx": 7,
+        "components/research/researchLandingContent.ts": 151,
+        "repositories/instrument.ts": 23
+      },
+      "user_removed_per_file": {
+        "app/api/instruments/etfs/suggest/route.ts": 2,
+        "components/research/StockResearchWorkspace.tsx": 38,
+        "components/research/StockSearch.tsx": 1,
+        "repositories/instrument.ts": 11
+      }
+    }
+  ]
+}
