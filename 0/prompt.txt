@@ -1,0 +1,41 @@
+create a judges page non authorised for my project  https://firstrun.atharvashah.com/judges/  similar to this  https://app.cfo.ai/digitale-india-7c43edf1/pages/f4dc1616-0348-4de6-8cc8-86f5728b7684 @/home/arnab-smnta/Desktop/codeV2/dainik-samachar-video/public/shots  this si my screen shots you can have commits  https://entire.io/gh/learner-enthusiast/dainikSamachar/commit/99293e01b128bb70db3439d496d22f72e297abad  similarly like this getting github coommit number and replacing the domain entore prefix i want it for neatlogs judges exclusive ly
+
+---
+
+will add the video as yt frame later kkep that empty
+
+---
+
+https://youtu.be/aiGtUomSRCU -yt video link
+
+---
+
+<task-notification>
+<task-id>bpxo23pws</task-id>
+<tool-use-id>toolu_0138ApW2vFGyAd4osdup2Wy7</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/8199b95a-f1fd-407d-8271-4fa6bdab8113/tasks/bpxo23pws.output</output-file>
+<status>completed</status>
+<summary>Background command "Run this app's dev server on port 3100" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b0rfrsnuo</task-id>
+<tool-use-id>toolu_01UGLbEdrkNRP3hJNC7HCRfW</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/8199b95a-f1fd-407d-8271-4fa6bdab8113/tasks/b0rfrsnuo.output</output-file>
+<status>failed</status>
+<summary>Background command "Restart this app's dev server on port 3100" failed with exit code 1</summary>
+</task-notification>
+
+---
+
+https://cfo.ai/s/Ida4SXIoVpU40HP7 -add this link in cfo.ai section for redirection i n new window
+
+---
+
+and the buttons evidence rows neatlogs in the top section should have some hove effects
+
+---
+
+Open the model on cfo.ai have some hover effect and have smooth scroll on click of the top buttons
