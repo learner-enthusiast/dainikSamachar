@@ -1,0 +1,69 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4R6P4HKXHNFN5ETCBK90D99",
+  "session_id": "8199b95a-f1fd-407d-8271-4fa6bdab8113",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-12T14:01:26.509708748Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "save_step_count": 2,
+  "files_touched": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/hackathon/cfo-1.webp",
+    "docs/hackathon/cfo-2.webp",
+    "docs/hackathon/cfo-3.webp",
+    "docs/hackathon/entire-1.webp",
+    "docs/hackathon/entire-2.webp",
+    "docs/hackathon/neatlogs.webp",
+    "neatlogsHackathon.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-5-5",
+  "turn_id": "49a43fc632da",
+  "checkpoint_transcript_start": 453,
+  "transcript_lines_at_start": 453,
+  "compact_transcript_start": 66,
+  "token_usage": {
+    "input_tokens": 88,
+    "cache_creation_tokens": 218279,
+    "cache_read_tokens": 8179943,
+    "output_tokens": 50195,
+    "api_call_count": 44
+  },
+  "session_metrics": {
+    "turn_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-12T14:01:26.31737584Z",
+    "agent_lines": 492,
+    "agent_removed": 0,
+    "human_added": 6,
+    "human_modified": 47,
+    "human_removed": 0,
+    "total_committed": 545,
+    "total_lines_changed": 545,
+    "agent_percentage": 90.27522935779817,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 11,
+      "user_lines_removed": 0,
+      "agent_lines_added": 539,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "AGENTS.md": 7,
+        "CLAUDE.md": 4
+      }
+    }
+  ]
+}
