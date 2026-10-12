@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4QE38Z86V2AAP3K4NZQ7PJ5",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    "app/admin/usage/page.tsx",
+    "app/settings/developers/page.tsx",
+    "clients/FireCrawlClient.ts",
+    "components/admin/DailyCreditsChart.tsx",
+    "components/developers/DevelopersClient.tsx",
+    "components/developers/YourUsageCard.tsx",
+    "db/schema/migrations/20261012064120_usage_reconciliation/migration.sql",
+    "db/schema/usage.prisma",
+    "inngest/index.ts",
+    "inngest/providerUsageReconcile.ts",
+    "lib/admin.ts",
+    "lib/usage/istTime.ts",
+    "lib/usage/queries.ts",
+    "services/usage/reconcileProviderUsage.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 54,
+    "cache_creation_tokens": 58056,
+    "cache_read_tokens": 5456056,
+    "output_tokens": 35690,
+    "api_call_count": 27
+  }
+}
