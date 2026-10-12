@@ -400,3 +400,41 @@ USAGE_RECONCILE_ALERTS=true).
 ---
 
 yes
+
+---
+
+<pasted_content id="ca7c">
+Go ahead with Step 4, with these details:
+- Day boundaries in Asia/Kolkata for "today"/"this month" and daily charts (store UTC, group in IST).
+- Admin page: totals today / this month per provider, daily chart (last 30 days), top 20 users, breakdown
+  by workflow and by source (incl. web-anon), and a run drill-down (all rows for a runId). Server-side
+  ADMIN_CLERK_IDS check; non-admins get 404, not 403.
+- Developers page (user's own usage): show usage by feature (news briefings, research, chat) as
+  "searches" and "pages read" for this month — not provider names or credit costs.
+- Queries must use the existing indexes; add any index you need in a migration and tell me. Paginate the
+  user table.
+- Reconcile cron: daily at 06:00 IST, store each result in a table (date, provider, ourTotal, providerTotal,
+  driftPct, environment) and show the last 14 results on the admin page. Alert only when
+  USAGE_RECONCILE_ALERTS=true.
+Commit when done.
+</pasted_content id="ca7c">
+
+---
+
+<task-notification>
+<task-id>bk2z2mh06</task-id>
+<tool-use-id>toolu_015yoWB9gprwCCWJ3z6AaaHZ</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/41aca42c-b5e9-4954-90c9-f551414af9a7/tasks/bk2z2mh06.output</output-file>
+<status>completed</status>
+<summary>Background command "Run reconcile once locally" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bpc88yh7y</task-id>
+<tool-use-id>toolu_0169mh94mWFvN6w7QrGb43VK</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/41aca42c-b5e9-4954-90c9-f551414af9a7/tasks/bpc88yh7y.output</output-file>
+<status>completed</status>
+<summary>Background command "Fix dl order, typecheck, probe pages on dev server" completed (exit code 0)</summary>
+</task-notification>
