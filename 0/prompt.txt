@@ -1,0 +1,440 @@
+'/home/arnab-smnta/ssd2/codeV2/my-app/app/MfResearch' '/home/arnab-smnta/ssd2/codeV2/my-app/app/stockResearch''/home/arnab-smnta/ssd2/codeV2/my-app/app/etfResearch'  the initial page.tsx forms looks very bland and very less informative and the page is really not at all apealing for a user needs to make it more interactive and descriptive so that user at least know what is it what country currently we support etc
+
+---
+
+<pasted_content id="ca7c">
+# Task: Pro-only public REST API (v1) for Dainik Samachar, with user-created API keys and full docs
+
+## Goal
+Let **Pro** users create API keys in the app and call Dainik Samachar's features from their own code:
+news briefings, the public story feed, stock/ETF/MF research, instrument search, and newsletters.
+Every endpoint has strict input validation, a documented response shape, clear errors, rate limits and usage
+quotas, and appears in auto-generated docs.
+
+The pipelines already work and are deployed. **The API is a thin layer over the existing services and Inngest
+pipelines — do not duplicate or change pipeline logic.**
+
+```
+ client ──Bearer ds_live_…──► /api/v1/* ──► auth (hash lookup) ──► Pro plan check ──► rate limit + quota ──► zod validate
+                                                                                            │
+                         existing services / Inngest pipelines ◄────────────────────────────┘
+                                         │
+              202 { job } ──► client polls GET /jobs/{id}  (or receives a signed webhook)
+```
+
+---
+
+## Step 0 — Explore (report back, change nothing)
+1. List the existing internal API routes and the service functions behind them for: news briefing creation
+   (NewsRequest + pipeline), public story feed (/newsStory), story detail, stock research (create + result),
+   instrument search (stocks / ETFs / mutual funds), chat, newsletters (CRUD, pause/resume, test send).
+   For each: inputs (zod schemas if they exist), outputs, sync vs async (Inngest), auth requirements,
+   typical duration and the external APIs it spends (SerpAPI, Firecrawl, Upstox, OpenAI).
+2. How Clerk middleware is configured, and how a request could bypass Clerk for `/api/v1/*` safely.
+3. Whether Redis (or Upstash) is available for rate limiting; otherwise propose a Postgres-based limiter.
+4. Zod version (v3 or v4) and whether `@asteasolutions/zod-to-openapi` or zod v4's `toJSONSchema` fits.
+5. How Neatlogs runs are started today (runWorkflow / identity), so API calls can be traced the same way.
+6. How "Pro" is determined today: Clerk Billing (`has({ plan: "pro" })` / features), a Stripe/Razorpay
+   subscription table, a `User.plan` column, or nothing yet. Where the pricing/upgrade page lives, and whether
+   billing webhooks / plan-change events exist. If there's no plan system yet, say so — don't build billing.
+
+Stop and show me: how Pro is detected (or that it isn't yet), the proposed endpoint list (method, path, scope,
+sync/async, cost class), plus any feature you think should NOT be exposed in v1 and why. Wait for my go-ahead.
+
+---
+
+## Pro-only access (applies to every step below)
+The public API is a **Pro feature**. Pro is checked in two places — when a key is created **and on every
+request** — so a user who cancels Pro can't keep using the API.
+
+```
+ Free user  → Developers page shows an upgrade card; "Create key" disabled; docs stay public
+ Pro user   → create keys, call the API with Pro limits
+ Pro → Free → keys kept but suspended: every call → 403 plan_required
+ Re-upgrade → the same keys work again (no re-integration needed)
+```
+
+- **Single source of truth:** `lib/billing/plan.ts` exporting `getUserPlan(userId): Promise<"free" | "pro">`,
+  reading whatever plan system Step 0 found (default `"free"`). Every check below uses only this function.
+- **Plan cache:** cache the plan per user for 60s (Redis if available, else an in-memory LRU) so API requests
+  don't hit billing each time. Invalidate immediately on billing webhooks / plan-change events if they exist.
+- **Limits by plan** in one config, `lib/api/v1/limits.ts`, env-overridable, structured for future tiers
+  (e.g. `business`):
+  `pro: { requestsPerMinute: 60, pipelineJobsPerDay: 50, maxActiveKeys: 10 }`.
+- **Downgrade / cancel:** keys are not deleted. They stay listed as "Suspended — Pro required" and resume
+  automatically on re-subscribe. Revoke always works.
+
+---
+
+## Step 1 — API keys
+
+**Data model (Prisma, new migration)**
+```
+ApiKey
+  id            uuid
+  userId        → User (onDelete: Cascade)
+  name          string            // user-given label, e.g. "Trading bot"
+  prefix        string  @unique   // first 12 chars shown in UI, e.g. "ds_live_a1B2"
+  hashedKey     string  @unique   // SHA-256 of the full key (hex); full key is NEVER stored
+  scopes        string[]          // e.g. ["news:read","news:write","research:write","newsletters:write"]
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?         // optional, user-chosen (30/90/365 days or never)
+  revokedAt     DateTime?
+  createdAt     DateTime
+
+ApiRequestLog                     // for usage page, quotas and debugging
+  id, apiKeyId, userId, method, path, status, durationMs, costClass, requestId, createdAt
+  @@index([apiKeyId, createdAt])
+```
+
+**Key format:** `ds_live_` + 32 random bytes base62 (crypto.randomBytes). Show the full key **once** at creation;
+store only the SHA-256 hash. Lookup = hash the presented key → find by `hashedKey`.
+
+**Rules:** creating a key requires Pro (checked in the server action, never only in the UI); max active keys
+per user from `limits.ts` (Pro: 10); revoking is immediate; expired/revoked keys return 401;
+update `lastUsedAt` at most once per minute per key (avoid a DB write on every request); never log the full
+key anywhere (logs, Neatlogs, errors).
+
+**Scopes**
+| Scope | Allows |
+|---|---|
+| `news:read` | public stories, own briefing results |
+| `news:write` | create news briefings |
+| `research:read` / `research:write` | read / create stock research reports |
+| `instruments:read` | instrument search |
+| `newsletters:read` / `newsletters:write` | list / create, update, pause, delete newsletters |
+
+**UI — Settings → Developers (`/settings/developers`, signed-in only)**
+- **Free users:** an upgrade card explaining what the API offers (endpoints, use cases), a button to the
+  pricing/upgrade page, and a link to the docs. Key list hidden; "Create key" disabled.
+- **Pro users:** list keys: name, prefix, scopes, created, last used, expires, status (Active / Revoked /
+  Expired / Suspended — Pro required); revoke button with confirmation.
+- Create dialog: name, scopes (checkboxes, sensible defaults), expiry. After creation show the full key once
+  with a copy button and a warning that it won't be shown again.
+- Usage panel: plan, limits, requests and pipeline runs today / this month per key vs. quota.
+- Link to the API docs. Add "Developers" to the account/settings navigation.
+- Server actions or internal routes for key management use Clerk auth (not API keys), with ownership checks.
+
+---
+
+## Step 2 — Request pipeline (one shared wrapper for every v1 route)
+Create `lib/api/v1/handler.ts` exporting `apiRoute({ scope, costClass, input, output }, handler)` that does,
+in order:
+1. **Request id** — generate `req_…`, return it as `X-Request-Id` on every response.
+2. **Auth** — read `Authorization: Bearer <key>`; 401 if missing/invalid/revoked/expired.
+3. **Plan** — `getUserPlan(key owner)` (cached). Not Pro → 403 `plan_required`:
+   `"The Dainik Samachar API requires an active Pro plan."` Then 403 `forbidden` if the scope is missing.
+4. **Rate limit** — per key, sliding window, limit from `limits.ts` (Pro: 60 requests/min). Headers on every response:
+   `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`; 429 with `Retry-After` when exceeded.
+5. **Quota** for expensive endpoints (costClass `pipeline`): per user per day, from `limits.ts`
+   (Pro: 50, env-overridable). 429 code `quota_exceeded` when used up. Count only accepted jobs.
+6. **Validation** — zod for query, params and JSON body (reject unknown fields; max body 64 KB). 400 with
+   field-level details.
+7. **Idempotency** — for POSTs that start pipelines, honour an optional `Idempotency-Key` header: same key +
+   same user within 24h returns the original response instead of starting a second job.
+8. **Tracing** — wrap in the existing Neatlogs `runWorkflow` with endUserId = key owner, `source: "api"`,
+   metadata `{ apiKeyId, requestId, plan }` (never the key itself).
+9. **Logging** — write ApiRequestLog (status, duration, cost class).
+10. **Errors** — every error uses one shape (below); unexpected errors return 500 `internal_error` with the
+   request id, never stack traces or provider messages.
+
+**Clerk middleware:** make `/api/v1/*` public to Clerk (the API-key wrapper does auth instead), but keep every
+other route's protection exactly as it is. **CORS:** no browser CORS by default (server-to-server API); document
+that keys must never be used in front-end code.
+
+**Response conventions**
+- JSON, `camelCase`, ISO-8601 UTC timestamps, IDs as strings.
+- Success: `{ "data": … }` (lists add `"pagination": { "nextCursor": string|null }`).
+- Error: `{ "error": { "code": "invalid_request", "message": "…", "details": [{ "field": "storyCount", "issue": "…" }], "requestId": "req_…" } }`
+- Error codes: `invalid_request` 400, `unauthorized` 401, `plan_required` 403, `forbidden` 403 (missing
+  scope), `not_found` 404, `conflict` 409,
+  `rate_limited` 429, `quota_exceeded` 429, `internal_error` 500, `upstream_unavailable` 503.
+- Pagination: cursor-based, `limit` 1–50 (default 20).
+- Ownership: a key only ever sees its owner's briefings, reports and newsletters (404, not 403, for others').
+  Public stories are readable by any key with `news:read`.
+
+---
+
+## Step 3 — Async jobs (pipelines take seconds to minutes)
+- Endpoints that run a pipeline return **202** with a job:
+  `{ "data": { "id": "job_…", "type": "news_briefing", "status": "queued", "createdAt": "…", "resultUrl": "/api/v1/…" } }`
+- `GET /api/v1/jobs/{id}` → `queued | running | succeeded | failed`, progress steps if the pipeline exposes
+  them (reuse loadingLogs), `error { code, message }` on failure, and the result (or a link to it) on success.
+- Map jobs onto the existing records (NewsRequest, stock research run) — a thin `ApiJob` table only if needed
+  to unify types.
+- **Webhooks (optional per request):** `webhookUrl` in the POST body (https only, no private/localhost IPs).
+  On completion POST `{ id, type, status, resultUrl }` with header `X-DS-Signature: sha256=<HMAC of body with a
+  per-user webhook secret>` and `X-DS-Timestamp`. Retry 3× with backoff via Inngest. Show the webhook secret
+  (and a rotate button) on the Developers page. If time is short, build polling first and webhooks second.
+
+---
+
+## Step 4 — Endpoints (v1)
+Adjust names/fields to what Step 0 found; keep this shape. Every endpoint gets zod input + output schemas.
+
+| Method | Path | Scope | Type | Purpose |
+|---|---|---|---|---|
+| GET | `/api/v1/stories` | news:read | sync | Public story feed. Filters: `region` (india/world/local), `city` (metro id), `category`, `from`, `to`, `q`, cursor/limit |
+| GET | `/api/v1/stories/{id}` | news:read | sync | One story: title, summary, why it matters, sources[], published/updated, region, categories |
+| POST | `/api/v1/news/briefings` | news:write | **async** | Create a briefing: `scope`, `location`/`lat`/`lng`, `categories`, `customQuery`, `language`, `sources`, `storyCount` (1–20), `date` |
+| GET | `/api/v1/news/briefings/{id}` | news:read | sync | Status + ranked stories when done |
+| GET | `/api/v1/instruments/search` | instruments:read | sync | `q`, `type` (stock/etf/mutual_fund), `exchange`, `limit` → instrumentKey, symbol, name, exchange, type |
+| POST | `/api/v1/research/reports` | research:write | **async** | Research a stock/ETF/MF: `instrumentKey` (or `symbol`+`exchange`), optional `question` |
+| GET | `/api/v1/research/reports/{id}` |ewsletters:read | sync | List own newsletters with next send |
+| POST | `/api/v1/newsletters` | newsletters:write | sync | Create (same validation as the app) |
+| GET/PATCH/DELETE | `/api/v1/newsletters/{id}` | newsletters:read/write | sync | Read / update / delete |
+| POST | `/api/v1/newsletters/{id}/pause` · `/resume` | newsletters:write | sync | Pause / resume |
+| GET | `/api/v1/me` | any | sync | Key info: owner, plan, scopes, limits, today's usage |
+
+- Reuse the app's existing zod schemas for briefing/newsletter inputs so the API and UI accept exactly the same
+  data. Output schemas are explicit DTOs — never return raw Prisma rows (no internal ids, userId, prompts,
+  costs or provider payloads).
+- Research reports include the "not investment advice" disclaimer field.
+- Chat: leave out of v1 unless Step 0 shows a clean request/response service; mention it in the docs roadmap.
+
+---
+
+## Step 5 — Documentation
+- **Single source of truth:** generate OpenAPI 3.1 from the same zod schemas used for validation
+  (zod-to-openapi registry, or zod v4 JSON Schema). Serve it at `GET /api/v1/openapi.json` (public, no key).
+- Every operation documents: summary, description, scope, cost class (counts against quota or not),
+  request params/body with constraints and examples, every response (202/200 and each error code) with example
+  bodies, rate-limit headers, and whether it's async.
+- **Docs page** `/docs/api` (public — anyone can read the docs; using the API needs Pro): render the spec with an interactive reference (Scalar API Reference or
+  Redoc), styled to match the site. Plus hand-written guide sections above or beside it:
+  1. Quickstart — "Requires a Pro plan" note with an upgrade link; create a key; first request in curl,
+     JavaScript (fetch) and Python (requests)
+  2. Authentication & scopes — header format, key safety, rotating/revoking
+  3. Async jobs — the create → poll → result flow with a full worked example, recommended poll interval (3–5s
+     with backoff), typical durations
+  4. Webhooks — payload, signature verification code (Node + Python), retries
+  5. Errors — table of codes with meaning and what to do
+  6. Plans, rate limits & quotas — Pro limits table, headers, 429 handling with Retry-After, what happens to
+     keys if Pro lapses
+  7. Pagination, idempotency, timestamps, versioning policy (`/v1`, breaking changes only in `/v2`)
+  8. Changelog
+- Add a CI/test check that fails if the OpenAPI spec doesn't build or an endpoint lacks schemas/examples.
+- Design the spec for SDK generation: a stable, unique `operationId` on every operation (e.g.
+  `stories.list`, `research.createReport`), tags per resource, named reusable schemas in `components`, and
+  documented enums — an npm SDK will be generated from this file later.
+
+---
+
+## Step 6 — Tests
+- Pro gating: free user can't create a key (UI and server action); Pro key works; same key after downgrade →
+  403 `plan_required`; after re-upgrade → works again; plan cache invalidated on plan change; suspended keys
+  shown correctly on the Developers page.
+- Key lifecycle: create → use → revoke → 401; expired key → 401; missing scope → 403; full key never stored or
+  logged (assert DB and log output).
+- Validation: bad body → 400 with field details; unknown fields rejected; body > 64 KB rejected.
+- Ownership: key A can't read key B's owner's briefing/report/newsletter (404).
+- Rate limit: 61st request in a minute → 429 with headers; quota exhaustion → `quota_exceeded`, nothing queued.
+- Idempotency: same Idempotency-Key twice → one job.
+- Async flow: POST briefing → 202 → job status transitions → result shape matches the documented schema
+  (mock the pipeline in tests; one opt-in live smoke test behind an env flag).
+- Webhook signature verifies with the documented algorithm; private-IP webhook URLs rejected.
+- Contract: every endpoint's actual responses validate against its OpenAPI response schema.
+
+## Constraints
+- No changes to pipeline behaviour or to existing internal routes used by the app.
+- Every route goes through `apiRoute(...)` — no endpoint handles auth, limits or errors by itself.
+- Secrets/env: document new env vars in `.env.example` (plan limit overrides, rate-limit store config).
+- Commit in stages: (1) plan helper + keys + Developers page, (2) handler + sync endpoints, (3) async jobs + webhooks,
+  (4) OpenAPI + docs page, (5) tests.
+
+Finish with: how Pro is detected, the final endpoint table, the docs URL, an example curl session (create briefing → poll → result),
+migration names, new env vars, and anything you left out of v1 and why.
+</pasted_content id="ca7c">
+
+---
+
+<pasted_content id="ca7c">
+Answers:
+1. Endpoint table approved, including the list endpoints. openapi.json stays public.
+2. Briefing dedupe: don't change requestNews. In the API layer, before calling it:
+   - existing briefing for same user/date/scope with ALL params equal (scope, location, categories,
+     customQuery, language, sources, storyCount) → 200 with the existing job, "deduplicated": true,
+     no quota charged;
+   - existing briefing for same user/date/scope but different params → 409 conflict, code "conflict",
+     message explaining one briefing per scope per day, include the existing briefing id.
+   Document both cases.
+3. Story feed filters approved. Use a composite opaque cursor (publishedAt desc, id desc). Document only
+   region values that actually work; drop the city filter from v1 docs.
+4. Newsletter email: always the account's primary email. Remove email from the API input schema and
+   document that.
+5. Yes: optional `source` param on startStockResearch / requestNews (default = current behaviour) and add
+   "api" to RunSource.
+6. Yes: Postgres limiter behind a RateLimiter interface so Upstash can replace it later. Add a daily cleanup
+   of rate-limit rows older than 2 days.
+
+Also:
+- getUserPlan must compute Pro from plan + currentPeriodEnd using isProSubscriberPlan (same grace rule);
+  never rely on lazy reconcile.
+- storyCount: 1–12, same as the UI.
+- Webhooks: if the pipelines already emit a completion event, use step.waitForEvent; otherwise your polling
+  plan (10s, 30 min max) is fine.
+- Newsletters created via the API count against the existing per-user newsletter limit.
+
+Go ahead with stage 1: plan helper, keys, Developers page.
+</pasted_content id="ca7c">
+
+---
+
+<pasted_content id="ca7c">
+# Task: Track SerpApi and Firecrawl credits per user
+
+Goal: every SerpApi and Firecrawl request is logged with who caused it and how many credits it cost, so I can
+see spend per user, per feature and per day. Pipelines must behave exactly as before.
+
+## Step 0 — Explore (report, no changes)
+- Every SerpApi call site and engine used (google, google_news, google_ai_mode, google_ai_overview follow-ups via
+  page_token, youtube, youtube transcripts, getBySearchId / search archive) and the client choke points
+  (clients/serpCleint.ts, SERP/index.ts).
+- Every Firecrawl call (scrape, and search/crawl/map/extract if used) and the options passed (formats incl. json,
+  pdf parsing, proxy). Choke point: clients/FireCrawlClient.ts.
+- How the current run context is available (runWorkflow / AsyncLocalStorage from the Neatlogs work: userId,
+  runId, source, workflow). Which call paths have no user (cron, newsletter editions, scripts).
+- Check the actual responses: does SerpApi's search_metadata indicate a cached result? Does the Firecrawl SDK
+  response include a credits field (e.g. creditsUsed)? Report exactly what you find.
+Stop and report.
+
+## Step 1 — Data model (Prisma migration)
+ProviderUsage
+  id uuid, createdAt
+  provider       "serpapi" | "firecrawl"
+  operation      e.g. "google", "google_news", "google_ai_overview", "youtube_transcript", "scrape", "search"
+  userId         String?   (null = system)
+  runId          String?   (same id as Neatlogs runs)
+  source         "web" | "chat" | "api" | "newsletter" | "cron" | "script"
+  workflow       e.g. "stockResearch", "news", "chat", "newsletterEdition"
+  editionId      String?   (for shared newsletter editions)
+  credits        Int
+  billable       Boolean
+  reason         "charged" | "cached" | "error" | "no_document" | "archive"
+  httpStatus     Int?
+  durationMs     Int
+  detail         Json      (engine, page count, formats, pdf pages, url host — NEVER api keys, full queries
+                            with personal data, or full URLs with tokens)
+  @@index([userId, createdAt]) @@index([provider, createdAt]) @@index([runId])
+
+## Step 2 — Credit rules (lib/usage/creditRules.ts, unit-tested, one place to update when pricing changes)
+SerpApi (one HTTP request = one row):
+- successful request → 1 (including zero-result searches)
+- error / failed request → 0 (reason "error")
+- cached result → 0 (reason "cached") — only if Step 0 found a reliable cache indicator; otherwise count 1
+  and note it
+- AI Overview follow-up (engine google_ai_overview with page_token) → its own request → 1. Do NOT add an extra
+  credit to the original search.
+- getBySearchId / search archive → 0 unless Step 0's docs check shows it's billed (reason "archive")
+Firecrawl:
+- If the response reports credits used, use that number.
+- Otherwise scrape: 1 per page when a document is returned (even if metadata.statusCode is 403/404),
+  +4 if a json format is requested, +1 per PDF page, +4 for other paid options in use; 0 if no document returned
+  (reason "no_document").
+- search: 2 per 10 results (rounded up) + scrape costs for scraped results; crawl: per page like scrape;
+  map: 1 per call.
+
+## Step 3 — Wrappers at the choke points
+- withUsage(...) in lib/usage, applied inside serpClient (search, getBySearchId) and firecrawlClient (every
+  method used) — not at call sites.
+- Read userId/runId/source/workflow from the existing run context; fall back to userId null + source "script".
+- Newsletter editions: attribute to system (userId null) with editionId set; don't split across subscribers.
+- Recording is fire-and-forget with a small in-memory buffer flushed every few seconds and at the end of each
+  Inngest step (createMany). Logging failures must never fail or slow the pipeline (catch + console.warn).
+- Add credits and provider to the Neatlogs TOOL span attributes too.
+
+## Step 4 — Reporting
+- lib/usage/queries.ts: credits by user/day, by workflow, by provider, top users this month.
+- Admin-only page /admin/usage (existing admin check): totals today/this month per provider, chart by day,
+  table by user and by workflow, drill into a run.
+- Users' own usage on the Developers/Settings page (their credits this month by feature).
+- Daily Inngest cron "provider-usage-reconcile": fetch SerpApi Account API (this month's usage) and Firecrawl's
+  credit-usage endpoint, compare with our totals for the same period, store the result, and log a warning if
+  drift > 5%.
+
+## Step 5 — Tests
+- Rules: each case above (serp success, zero results, error, cached, ai_overview follow-up counted once,
+  firecrawl doc with 404 = 1, json = 5, no document = 0, pdf pages, search rounding).
+- Wrapper: user/run captured from context; logging failure doesn't break the call; no secrets in detail.
+- One real run each of stock research, news and chat in dev: print the per-run credit totals and compare with
+  the provider dashboards.
+
+Commit in steps: model + rules, wrappers, reporting, reconcile cron. Finish with the per-run totals from the
+test
+runs and any pricing rule you couldn't verify.
+</pasted_content id="ca7c">
+
+---
+
+<pasted_content id="ca7c">
+Answers:
+1. SerpApi cache rule (created_at > 2s before request start → 0, reason "cached"): approved.
+   SerpApi errors: 200 response with an "error" field (incl. no results) → 1, billable; HTTP error from
+   SerpApi → 0, reason "error"; client-side timeout/abort → 1, reason "timeout_assumed".
+   Firecrawl: always use metadata.creditsUsed; fallback rules only if it's missing (log a warning).
+2. Admin: ADMIN_CLERK_IDS env allowlist, checked server-side for /admin/usage.
+3. Attribution:
+   - Add the trace/run ref to the first-chat-message event so chat spend has a user.
+   - Add editionId to newsletter edition trace metadata.
+   - /api/location/* currently has no auth and spends SerpApi credits — fix that: require sign-in if
+     only signed-in flows use it; if signed-out pages need it, add a per-IP rate limit (e.g. 20/min) and a
+     short response cache (autocomplete by normalized query, 24h). Record usage with userId when signed in,
+     else userId null + source "web-anon" + hashed IP.
+   - Scripts: source "script", no user.
+4. Keys across environments: [ANSWER: shared / separate]. Add an `environment` column to ProviderUsage
+   either way. If shared, the reconcile cron reports drift but doesn't alert, and notes that provider totals
+   include other environments.
+Proceed with Step 1.
+</pasted_content id="ca7c">
+
+---
+
+<pasted_content id="ca7c">
+Go ahead with Step 2.
+Keys: shared between dev and prod for now. Add the environment column, and make the reconcile cron
+report drift without alerting (note that provider totals include other environments). I'll switch dev to
+separate keys later; when I do, alerting should be a one-line config change (env flag
+USAGE_RECONCILE_ALERTS=true).
+</pasted_content id="ca7c">
+
+---
+
+yes
+
+---
+
+<pasted_content id="ca7c">
+Go ahead with Step 4, with these details:
+- Day boundaries in Asia/Kolkata for "today"/"this month" and daily charts (store UTC, group in IST).
+- Admin page: totals today / this month per provider, daily chart (last 30 days), top 20 users, breakdown
+  by workflow and by source (incl. web-anon), and a run drill-down (all rows for a runId). Server-side
+  ADMIN_CLERK_IDS check; non-admins get 404, not 403.
+- Developers page (user's own usage): show usage by feature (news briefings, research, chat) as
+  "searches" and "pages read" for this month — not provider names or credit costs.
+- Queries must use the existing indexes; add any index you need in a migration and tell me. Paginate the
+  user table.
+- Reconcile cron: daily at 06:00 IST, store each result in a table (date, provider, ourTotal, providerTotal,
+  driftPct, environment) and show the last 14 results on the admin page. Alert only when
+  USAGE_RECONCILE_ALERTS=true.
+Commit when done.
+</pasted_content id="ca7c">
+
+---
+
+<task-notification>
+<task-id>bk2z2mh06</task-id>
+<tool-use-id>toolu_015yoWB9gprwCCWJ3z6AaaHZ</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/41aca42c-b5e9-4954-90c9-f551414af9a7/tasks/bk2z2mh06.output</output-file>
+<status>completed</status>
+<summary>Background command "Run reconcile once locally" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bpc88yh7y</task-id>
+<tool-use-id>toolu_0169mh94mWFvN6w7QrGb43VK</tool-use-id>
+<output-file>/tmp/claude-1000/-home-arnab-smnta-ssd2-codeV2-my-app/41aca42c-b5e9-4954-90c9-f551414af9a7/tasks/bpc88yh7y.output</output-file>
+<status>completed</status>
+<summary>Background command "Fix dl order, typecheck, probe pages on dev server" completed (exit code 0)</summary>
+</task-notification>

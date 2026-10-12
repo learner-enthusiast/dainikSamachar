@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4QE4HYKRWGDAGJWZAYFJ063",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "db/schema/api.prisma",
+    "db/schema/migrations/20261012063315_api_rate_limit_idempotency/migration.sql",
+    "db/schema/schema.prisma",
+    "inngest/apiMaintenance.ts",
+    "inngest/index.ts",
+    "lib/api/v1/contract.ts",
+    "lib/api/v1/cursor.ts",
+    "lib/api/v1/errors.ts",
+    "lib/api/v1/idempotency.ts",
+    "lib/api/v1/rateLimit.ts",
+    "lib/api/v1/schemas.ts",
+    "services/newsletter/newsletterService.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 336,
+    "cache_creation_tokens": 332790,
+    "cache_read_tokens": 36443364,
+    "output_tokens": 175650,
+    "api_call_count": 168
+  }
+}
