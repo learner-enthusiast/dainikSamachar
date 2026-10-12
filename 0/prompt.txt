@@ -363,3 +363,26 @@ Commit in steps: model + rules, wrappers, reporting, reconcile cron. Finish with
 test
 runs and any pricing rule you couldn't verify.
 </pasted_content id="ca7c">
+
+---
+
+<pasted_content id="ca7c">
+Answers:
+1. SerpApi cache rule (created_at > 2s before request start → 0, reason "cached"): approved.
+   SerpApi errors: 200 response with an "error" field (incl. no results) → 1, billable; HTTP error from
+   SerpApi → 0, reason "error"; client-side timeout/abort → 1, reason "timeout_assumed".
+   Firecrawl: always use metadata.creditsUsed; fallback rules only if it's missing (log a warning).
+2. Admin: ADMIN_CLERK_IDS env allowlist, checked server-side for /admin/usage.
+3. Attribution:
+   - Add the trace/run ref to the first-chat-message event so chat spend has a user.
+   - Add editionId to newsletter edition trace metadata.
+   - /api/location/* currently has no auth and spends SerpApi credits — fix that: require sign-in if
+     only signed-in flows use it; if signed-out pages need it, add a per-IP rate limit (e.g. 20/min) and a
+     short response cache (autocomplete by normalized query, 24h). Record usage with userId when signed in,
+     else userId null + source "web-anon" + hashed IP.
+   - Scripts: source "script", no user.
+4. Keys across environments: [ANSWER: shared / separate]. Add an `environment` column to ProviderUsage
+   either way. If shared, the reconcile cron reports drift but doesn't alert, and notes that provider totals
+   include other environments.
+Proceed with Step 1.
+</pasted_content id="ca7c">
