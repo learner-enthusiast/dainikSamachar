@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4QEGZD1TZTTA9D228BCP9WC",
+  "strategy": "manual-commit",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "app/api/developers/webhook-secret/route.ts",
+    "app/api/v1/jobs/[id]/route.ts",
+    "app/api/v1/news/briefings/route.ts",
+    "app/api/v1/research/reports/route.ts",
+    "components/developers/DevelopersClient.tsx",
+    "components/developers/WebhookSecretCard.tsx",
+    "db/schema/api.prisma",
+    "db/schema/migrations/20261012065317_api_jobs_webhooks/migration.sql",
+    "db/schema/schema.prisma",
+    "inngest/apiWebhooks.ts",
+    "inngest/index.ts",
+    "lib/api/v1/briefingDedupe.ts",
+    "lib/api/v1/contract.ts",
+    "lib/api/v1/dto.ts",
+    "lib/api/v1/jobs.ts",
+    "lib/api/v1/quota.ts",
+    "lib/api/v1/schemas.ts",
+    "lib/api/v1/webhooks.ts",
+    "lib/observability/neatlogs.ts",
+    "services/news/apiService.ts",
+    "services/stockResearch/apiService.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 60,
+    "cache_creation_tokens": 49443,
+    "cache_read_tokens": 7398445,
+    "output_tokens": 36078,
+    "api_call_count": 30
+  }
+}
