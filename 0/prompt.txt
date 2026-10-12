@@ -1,0 +1,43 @@
+<pasted_content id="4722">
+Continue the public API (see PUBLIC_API_PROMPT.md). Stage 1 (keys, Developers page, limits, scopes) is done.
+Now do stages 2–5, committing after each. Reuse existing pieces: lib/api/v1/keys.ts (hashApiKey,
+looksLikeApiKey), repositories/apiKey.ts (findApiKeyByHash, touchApiKeyLastUsed), lib/api/v1/limits.ts,
+lib/api/v1/scopes.ts, ApiRequestLog.
+
+Stage 2 — lib/api/v1/handler.ts: apiRoute({ scope, costClass, input, output }, handler) doing, in order:
+request id (X-Request-Id) → Bearer key (looksLikeApiKey → hashApiKey → findApiKeyByHash; 401 if
+missing/invalid/revoked/expired) → plan via getUserPlan (computed from User.plan + Subscription.currentPeriodEnd
+with isProSubscriberPlan — never rely on lazy reconcile; not Pro → 403 plan_required) → scope (403 forbidden)
+→ rate limit (Postgres limiter behind a RateLimiter interface; X-RateLimit-* headers; 429 + Retry-After)
+→ daily pipeline quota (429 quota_exceeded; count only accepted jobs) → zod validation (strict, 64 KB max,
+400 with field details) → Idempotency-Key for pipeline POSTs (24h) → Neatlogs runWorkflow with
+source "api", metadata { apiKeyId, requestId, plan } → ApiRequestLog + touchApiKeyLastUsed (≤1/min)
+→ one error shape { error: { code, message, details?, requestId } }; 500s never leak internals.
+Then the sync endpoints: /me, /stories (filters: region values that actually work, category, from, to, q;
+composite opaque cursor on publishedAt desc, id desc; no city filter), /stories/{id},
+/instruments/search, briefings list/get, research list/get, newsletters CRUD + pause/resume.
+Newsletters: email is always the account's primary email (not in input); count against the existing
+per-user newsletter limit. Output DTOs only, never raw Prisma rows.
+
+Stage 3 — async: POST /news/briefings and POST /research/reports return 202 + job (ApiJob: id, type,
+underlying record id, request hash, webhookUrl; status read live from the underlying record).
+Add optional `source` param to requestNews / startStockResearch (default = current behaviour) and "api"
+to RunSource. Briefing dedupe in the API layer: same user/date/scope with ALL params equal → 200 existing
+job, "deduplicated": true, no quota; same user/date/scope with different params → 409 conflict with the
+existing id. storyCount 1–12. GET /jobs/{id}. Webhooks: https only, block private IPs; HMAC-SHA256 with a
+per-user secret (shown/rotatable on Developers page), X-DS-Signature + X-DS-Timestamp, 3 retries via Inngest;
+use waitForEvent if pipelines emit completion events, otherwise poll every 10s for max 30 min.
+
+Stage 4 — OpenAPI 3.1 from the zod v4 schemas (toJSONSchema + .meta ids into components), stable
+operationIds (e.g. stories.list, research.createReport), tags, examples for every response and error.
+Serve GET /api/v1/openapi.json (public) and a public /docs/api page (Scalar) with quickstart (curl, JS,
+Python, "requires Pro"), auth & scopes, async jobs, webhooks (verification code), errors, plans/limits,
+pagination, idempotency, versioning, changelog. CI check that the spec builds and every route has schemas.
+
+Stage 5 — tests from the original prompt (keys, plan gating incl. downgrade/re-upgrade, scopes,
+validation, ownership 404s, rate limit, quota, idempotency, dedupe 200/409, async flow with mocked
+pipelines, webhook signature, contract tests against the OpenAPI schemas).
+
+Don't change pipeline logic or existing internal /api/* routes. Finish with the endpoint table, docs URL,
+an example curl session, and anything left out.
+</pasted_content id="4722">
