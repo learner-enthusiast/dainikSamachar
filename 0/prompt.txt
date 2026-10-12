@@ -386,3 +386,13 @@ Answers:
    include other environments.
 Proceed with Step 1.
 </pasted_content id="ca7c">
+
+---
+
+<pasted_content id="ca7c">
+Go ahead with Step 2.
+Keys: shared between dev and prod for now. Add the environment column, and make the reconcile cron
+report drift without alerting (note that provider totals include other environments). I'll switch dev to
+separate keys later; when I do, alerting should be a one-line config change (env flag
+USAGE_RECONCILE_ALERTS=true).
+</pasted_content id="ca7c">
