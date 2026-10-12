@@ -1,0 +1,82 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4QC3W04ZNXSDWRMNP9E7P00",
+  "session_id": "bd4f75c3-e472-4340-b322-a30189204688",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-12T06:17:06.314504244Z",
+  "branch": "master",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "components/developers/DevelopersClient.tsx",
+    "components/news/NewsAppShell.tsx",
+    "components/site-header.tsx",
+    "db/schema/schema.prisma",
+    "services/billing/confirmRazorpayPayment.ts",
+    "services/billing/userPlan.ts"
+  ],
+  "agent": "Cursor",
+  "model": "composer-2.5-fast",
+  "turn_id": "a74688196174",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 134851,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 977792,
+    "output_tokens": 4097,
+    "api_call_count": 1
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-12T06:17:06.229163712Z",
+    "agent_lines": 454,
+    "agent_removed": 0,
+    "human_added": 5,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 460,
+    "total_lines_changed": 460,
+    "agent_percentage": 98.69565217391305,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 1511,
+      "user_lines_removed": 40,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "app/api/developers/keys/[keyId]/route.ts": 26,
+        "app/api/developers/keys/route.ts": 62,
+        "app/settings/developers/page.tsx": 20,
+        "app/settings/layout.tsx": 12,
+        "app/settings/page.tsx": 5,
+        "components/developers/CreateApiKeyDialog.tsx": 254,
+        "components/news/NewsAppShell.tsx": 8,
+        "components/research/StockResearchWorkspace.tsx": 307,
+        "components/research/StockSearch.tsx": 7,
+        "components/research/researchLandingContent.ts": 128,
+        "components/site-header.tsx": 10,
+        "db/schema/api.prisma": 53,
+        "db/schema/migrations/20261012060857_api_keys/migration.sql": 55,
+        "db/schema/schema.prisma": 2,
+        "lib/api/v1/keys.ts": 50,
+        "lib/api/v1/limits.ts": 40,
+        "lib/api/v1/scopes.ts": 69,
+        "lib/billing/plan.ts": 89,
+        "repositories/apiKey.ts": 128,
+        "services/billing/confirmRazorpayPayment.ts": 3,
+        "services/billing/userPlan.ts": 2,
+        "services/developers/apiKeyService.ts": 181
+      },
+      "user_removed_per_file": {
+        "components/research/StockResearchWorkspace.tsx": 38,
+        "components/research/StockSearch.tsx": 1,
+        "components/site-header.tsx": 1
+      }
+    }
+  ]
+}

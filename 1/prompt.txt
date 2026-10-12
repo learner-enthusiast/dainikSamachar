@@ -1,0 +1,173 @@
+For the code present, we get this error:
+```
+Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/arnab-smnta/ssd2/codeV2/my-app/app/newsletters/page.tsx:54:10
+  52 |
+  53 |   useEffect(() => {
+> 54 |     void load();
+     |          ^^^^ Avoid calling setState() directly within an effect
+  55 |   }, []);
+  56 |
+  57 |   async function toggleActive(id: string, isActive: boolean) {
+```
+Fix it, verify, and then give a concise explanation. @app/newsletters/page.tsx:53-56
+
+---
+
+# Task: Export a UI spec (JSON) for every page, for a full UI redesign
+
+I'm redesigning the whole website. Produce a JSON description of every page that captures WHAT is on
+each page and HOW it behaves — not the current styling — so a design model can redesign it from scratch.
+Do not change any app code.
+
+## Step 1 — Inventory
+- Find every route in the Next.js app (app/ directory, including dynamic routes, route groups, layouts,
+  modals/intercepting routes, and auth pages). Skip API routes.
+- Find shared layout pieces: header/nav, sidebar, footer, mobile menu, toasts, modals, auth gates.
+- Show me the route list before writing the JSON.
+
+## Step 2 — One JSON file per page: design-spec/pages/<route-slug>.json
+Use exactly this shape:
+{
+  "route": "/stock-research/[instrumentKey]",
+  "name": "Stock research report",
+  "purpose": "One sentence: what the user comes here to do",
+  "access": "public | signed-in | admin",
+  "primaryAction": "The single most important thing the user does here",
+  "layout": "Reading order top→bottom, e.g. header > search bar > two-column (report | sources) > footer",
+  "sections": [
+    {
+      "id": "report-summary",
+      "title": "Visible heading or null",
+      "purpose": "What this section is for",
+      "priority": "primary | secondary | tertiary",
+      "components": [
+        {
+          "type": "card | table | list | form | chart | tabs | button | input | select | badge | modal | stepper | empty-state | ...",
+          "label": "Visible text / label",
+          "content": "What it shows (fields, columns, items)",
+          "dataFields": ["name", "ltp", "changePercent", "marketCap"],
+          "sampleData": { "name": "Reliance Industries", "ltp": 2915.4, "changePercent": -0.8 },
+          "actions": ["What clicking/typing does, and where it goes"],
+          "repeat": "How many items typically (e.g. 5–10 stories) or null"
+        }
+      ]
+    }
+  ],
+  "forms": [
+    { "id": "...", "fields": [{ "name": "...", "type": "...", "required": true, "validation": "...", "options": [] }],
+      "submit": "What happens on submit" }
+  ],
+  "states": {
+    "loading": "What shows while loading (e.g. step-by-step pipeline progress)",
+    "empty": "What shows with no data",
+    "error": "What shows on failure",
+    "other": ["e.g. pipeline running, partial results, re-run in progress, paused newsletter"]
+  },
+  "realtime": "Polling / streaming / live updates, if any",
+  "navigation": { "from": ["pages that link here"], "to": ["pages this links to"] },
+  "dataSources": ["API routes / server functions that feed this page"],
+  "responsiveNotes": "What must still work on mobile",
+  "contentTone": "e.g. calm, data-dense, trustworthy financial tone",
+  "currentPainPoints": ["Problems you notice in the current UI: clutter, missing states, confusing flow"]
+}
+
+## Step 3 — Shared files
+- design-spec/global.json: app name, product description (AI news + stock/ETF/MF research for retail
+  investors, India + US), target users, header/nav items, footer, auth (Clerk), global components
+  (toasts, modals, search), and a list of ALL reusable components with where each is used.
+- design-spec/sitemap.json: every page with route, name, access, and links between pages (user flows),
+  e.g. "landing → sign in → news feed → story → chat about story".
+- design-spec/index.md: a short human summary of all pages and the main user flows.
+
+## Step 4 — One design prompt per page
+For each page, also write design-spec/prompts/<route-slug>.txt: a self-contained, plain-English prompt
+(150–300 words) for an image/design model, describing the page's purpose, sections in order, every
+component with realistic sample content, and key states — WITHOUT prescribing colours, fonts or style
+(I'll add my own style direction later). Include desktop layout; mention mobile differences in one line.
+
+## Step 5 — Screenshots of the current UI (reference only)
+If the dev server can run, use Playwright (Chromium is installed) to screenshot each page at 1440px and
+390px into design-spec/screenshots/. For signed-in pages, use a test session if one exists; otherwise
+skip them and list which ones were skipped.
+
+## Rules
+- Describe real content from the code; don't invent features. Mark anything unclear as "unknown".
+- sampleData must be realistic but fake: no real user names, emails, ids, API keys or tokens.
+- Ignore current CSS/Tailwind classes, colours and fonts entirely.
+- Valid JSON only (run a JSON parse check on every file at the end).
+
+Finish with: the list of files created, page count, and any pages you couldn't fully describe.
+
+---
+
+create a proper unsubscribe page with details of newslteer and and button big red to unsucribe on click should give a popup you are sure you are unscribibing and add acnifirmation with the title copy button to paste it in input to confirm use shadcn compoenents
+
+---
+
+@app/unsubscribe/route.ts  create a proper unsubscribe page modifying this one with details of newslteer and and button big red to unsucribe on click should give a popup you are sure you are unscribibing and add acnifirmation with the title copy button to paste it in input to confirm use shadcn compoenents
+
+---
+
+@/home/arnab-smnta/.cursor/projects/home-arnab-smnta-ssd2-codeV2-my-app/terminals/3.txt:1007-1019
+
+---
+
+in the /newsletter page have proper toast and proper acknowldgement when user clicks Send Test because he is not getting proper acknowledgement and he should be able to ask for send Test only after 10 secs of clicking
+
+---
+
+ƒ /MfResearch/[stockResearchId]
+├ ƒ /MfResearch/history
+├ ƒ /news
+├ ƒ /news/[newsId]
+├ ƒ /news/newsRequests
+├ ƒ /newsletters
+├ ƒ /newsletters/[newsletterId]
+├ ƒ /newsletters/new
+├ ƒ /newsStory
+├ ƒ /newsStory/[storyId]
+├ ƒ /newsStory/bookmarks
+├ ƒ /newsStory/saved
+├ ƒ /pricing
+├ ƒ /sign-in/[[...sign-in]]
+├ ƒ /sign-up/[[...sign-up]]
+├ ƒ /stockResearch
+├ ƒ /stockResearch/[stockResearchId]
+├ ƒ /stockResearch/history
+└ ƒ /unsubscribe
+ƒ Proxy (Middleware)
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+Restarting application...
+[PM2] Applying action restartProcessId on app [dainiksamachar](ids: [ 0 ])
+[PM2] [dainiksamachar](0) ✓
+┌────┬───────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name              │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ dainiksamachar    │ default     │ 0.40.7  │ fork    │ 64439    │ 0s     │ 4    │ online    │ 0%       │ 11.5mb   │ ***   │ disabled │
+└────┴───────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 78.2% | ram usage: 31.1% | disk: ⇓ 0mb/s ⇑ 17.167mb/s / 85.96%
+[PM2] Saving current process list...
+[PM2] Successfully saved in /home/***/.pm2/dump.pm2
+Checking application health...
+curl: (7) Failed to connect to 127.0.0.1 port 3000 after 0 ms: Could not connect to server
+@.github/workflows/deploy.yml 
+
+it is always failing in tge last step all though the server is running properly
+
+---
+
+SELECT *
+FROM instruments
+WHERE (name ILIKE '%ETF%' OR short_name ILIKE '%ETF%')
+  AND (name ILIKE '%your_query%' OR short_name ILIKE '%your_query%');
+
+use query something like this with top queries
